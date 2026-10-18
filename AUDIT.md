@@ -58,10 +58,12 @@ It does not certify the current live deployment or the real Supabase project.
 
 ## Required before production release
 
-1. Connect GitHub write access to both repositories and the Vercel project
-   serving `peesbakery.rest`. The connected Vercel account did not show a bakery
-   project at audit time. Publish and smoke-test the new build on the actual
-   domain, including `/admin`, `/menu`, `/robots.txt`, and `/sitemap.xml`.
+1. GitHub collaborator write access to both repositories is confirmed. Enable
+   the connected GitHub app for both repositories under the `networksignal62-del`
+   owner account to open the review requests. Connect the Vercel project serving
+   `peesbakery.rest`; the connected Vercel account still does not show a bakery
+   project. Publish and smoke-test the new build on the actual domain, including
+   `/admin`, `/menu`, `/robots.txt`, and `/sitemap.xml`.
 2. Rotate the Supabase service-role key and password previously exposed in the
    public admin repository's Git history. Removing source files does not revoke
    those credentials. Do not put replacement secrets in Git or chat.
