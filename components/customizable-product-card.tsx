@@ -22,11 +22,11 @@ export function CustomizableProductCard({ product }: CustomizableProductCardProp
     const message = encodeURIComponent(
       `Hello! I'm interested in ordering a customized cake design. I'd like to discuss my ideas for a special occasion.`,
     )
-    window.open(`https://wa.me/${phoneNumber}?text=${message}`, "_blank")
+    window.open(`https://wa.me/${phoneNumber}?text=${message}`, "_blank", "noopener,noreferrer")
   }
 
   return (
-    <div className="bg-gradient-to-br from-[#fffbf5] via-white to-[#fff5e6] border-2 border-[#fd4d00] rounded-2xl overflow-hidden transition-all duration-300 hover:shadow-[0_20px_40px_rgba(253,77,0,0.3)] hover:-translate-y-3 hover:scale-[1.02] cursor-pointer flex flex-col h-full group relative">
+    <div className="bg-gradient-to-br from-[#fffbf5] via-white to-[#fff5e6] border-2 border-[#fd4d00] rounded-2xl overflow-hidden transition-all duration-300 hover:shadow-[0_20px_40px_rgba(253,77,0,0.3)] hover:-translate-y-3 hover:scale-[1.02] flex flex-col h-full group relative">
       {/* Decorative corner elements */}
       <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-[#fd4d00]/20 to-transparent rounded-bl-full" />
       <div className="absolute bottom-0 left-0 w-20 h-20 bg-gradient-to-tr from-[#014325]/10 to-transparent rounded-tr-full" />
@@ -37,7 +37,7 @@ export function CustomizableProductCard({ product }: CustomizableProductCardProp
         CUSTOM ORDER
       </div>
 
-      <Link href={`/product/${product.id}`}>
+      <div>
         {/* Image Carousel */}
         <div className="relative aspect-square overflow-hidden bg-gradient-to-br from-[#f5f5f0] to-[#fffbf5]">
           <Image
@@ -46,6 +46,7 @@ export function CustomizableProductCard({ product }: CustomizableProductCardProp
             fill
             className="object-cover transition-all duration-700 group-hover:scale-110"
           />
+          <Link href={`/product/${product.id}`} className="absolute inset-0 z-[1]" aria-label={`View ${product.name}`} />
 
           {/* Gradient overlay */}
           <div className="absolute inset-0 bg-gradient-to-t from-[#fd4d00]/30 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
@@ -80,7 +81,7 @@ export function CustomizableProductCard({ product }: CustomizableProductCardProp
         <div className="p-4 sm:p-5 flex flex-col flex-1 relative z-10">
           <h3 className="font-bold text-lg sm:text-xl text-[#0f1419] mb-2 transition-all duration-300 group-hover:text-[#014325] flex items-center gap-2">
             <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-[#fd4d00] group-hover:rotate-180 transition-transform duration-500" />
-            {product.name}
+            <Link href={`/product/${product.id}`}>{product.name}</Link>
           </h3>
 
           <p className="text-xs sm:text-sm text-[#5c6466] line-clamp-2 leading-relaxed mb-4 flex-1">
@@ -102,7 +103,7 @@ export function CustomizableProductCard({ product }: CustomizableProductCardProp
           {/* Note */}
           <p className="text-center text-xs text-[#014325] mt-2 italic">Custom prices based on design complexity</p>
         </div>
-      </Link>
+      </div>
     </div>
   )
 }

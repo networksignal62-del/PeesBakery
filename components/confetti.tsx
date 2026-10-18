@@ -19,7 +19,6 @@ export function Confetti({ trigger }: ConfettiProps) {
 
   useEffect(() => {
     if (trigger) {
-      console.log("[v0] Confetti animation triggered")
 
       const colors = ["#014325", "#fd4d00", "#10b981", "#0284c7"]
       const newParticles: Particle[] = []

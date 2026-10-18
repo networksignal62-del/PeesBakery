@@ -5,15 +5,20 @@ import { ShoppingCart, Menu, X, Search, Heart, Phone } from 'lucide-react'
 import { useState, useEffect, useRef } from "react"
 import { useCart } from "@/hooks/use-cart"
 import { useWishlist } from "@/hooks/use-wishlist"
-import { products } from "@/lib/products"
+import { getProducts } from "@/lib/actions/products"
+import type { Product } from "@/lib/types"
 import { useRouter, usePathname } from 'next/navigation'
 import Image from "next/image"
+import { useSiteSettings } from '@/hooks/use-site-settings'
 
 export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const [showSearchDropdown, setShowSearchDropdown] = useState(false)
+  const [searchProducts, setSearchProducts] = useState<Product[]>([])
+  const settings = useSiteSettings()
+  const orderPhone = settings.order_phone || '+232 75 361494'
   const { getItemCount } = useCart()
   const { getWishlistCount } = useWishlist()
   const itemCount = getItemCount()
@@ -22,7 +27,15 @@ export function Header() {
   const pathname = usePathname()
   const searchRef = useRef<HTMLDivElement>(null)
 
-  const filteredProducts = products.filter((product) => product.name.toLowerCase().includes(searchQuery.toLowerCase()))
+  const filteredProducts = searchProducts.filter((product) => product.name.toLowerCase().includes(searchQuery.toLowerCase()))
+
+  useEffect(() => {
+    let active = true
+    getProducts().then(result => {
+      if (active && result.success) setSearchProducts(result.data)
+    }).catch(() => undefined)
+    return () => { active = false }
+  }, [])
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -36,7 +49,6 @@ export function Header() {
   }, [])
 
   const handleNavClick = (destination: string) => {
-    console.log("[v0] Navigation to:", destination)
     setMobileMenuOpen(false)
   }
 
@@ -48,12 +60,10 @@ export function Header() {
   }
 
   const handleWishlistClick = () => {
-    console.log("[v0] Wishlist clicked, navigating to wishlist page")
     router.push("/wishlist")
   }
 
   const handleMobileSearchClick = () => {
-    console.log("[v0] Mobile search clicked")
     setMobileSearchOpen(!mobileSearchOpen)
     setMobileMenuOpen(false)
   }
@@ -66,9 +76,9 @@ export function Header() {
   return (
     <>
       <div className="bg-[#fd4d00] text-white py-2 px-4 text-center font-medium">
-        <a href="tel:+23275361494" className="flex items-center justify-center gap-2 hover:underline text-white">
+        <a href={`tel:+${orderPhone.replace(/\D/g, '')}`} className="flex items-center justify-center gap-2 hover:underline text-white">
           <Phone className="w-4 h-4" />
-          <span>Call this number to confirm your order: +232 75 361494</span>
+          <span>Call this number to confirm your order: {orderPhone}</span>
         </a>
       </div>
       
@@ -119,7 +129,7 @@ export function Header() {
             <Link href="/" className="lg:absolute lg:left-1/2 lg:-translate-x-1/2" onClick={() => handleNavClick("home")}>
               <div className="relative h-12 w-12 md:h-16 md:w-16 lg:h-20 lg:w-20">
                 <Image
-                  src="/images/design-mode/Pees%20Bakery%20Logo%403x.png.jpeg"
+                  src="/pees-bakery-logo.png"
                   alt="Pee's Bakery Logo"
                   fill
                   className="object-contain invert rounded-md"
@@ -273,7 +283,7 @@ export function Header() {
                 )}
                 {showSearchDropdown && filteredProducts.length === 0 && searchQuery && (
                   <div className="mt-2 bg-white rounded-lg shadow-xl border border-[#e5e7e8] p-4 text-center text-[#5c6466]">
-                    No products found for "{searchQuery}"
+                    No products found for &quot;{searchQuery}&quot;
                   </div>
                 )}
               </div>

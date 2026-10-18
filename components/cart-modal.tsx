@@ -20,8 +20,6 @@ export function CartModal({ isOpen, onClose }: CartModalProps) {
   useEffect(() => {
     if (isOpen) {
       setShowConfetti(true)
-      console.log("[v0] Cart modal opened, items in cart:", cart.length)
-      console.log("[v0] Cart total:", getCartTotal())
       const timer = setTimeout(() => setShowConfetti(false), 3000)
       return () => clearTimeout(timer)
     }
@@ -31,7 +29,7 @@ export function CartModal({ isOpen, onClose }: CartModalProps) {
 
   return (
     <>
-      {showConfetti && <Confetti />}
+      {showConfetti && <Confetti trigger={showConfetti} />}
 
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 animate-in fade-in duration-200">
         <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[80vh] overflow-hidden animate-in zoom-in-95 duration-200">

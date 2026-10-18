@@ -1,16 +1,14 @@
 "use client"
 
-import { useEffect } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import { Heart, Leaf, Users, Award, MapPin, Clock } from 'lucide-react'
+import { useSiteSettings } from '@/hooks/use-site-settings'
 
 export default function AboutPage() {
-  useEffect(() => {
-    console.log("[v0] Page loaded: About")
-  }, [])
+  const settings = useSiteSettings()
 
   const values = [
     {
@@ -49,14 +47,14 @@ export default function AboutPage() {
         <section className="relative h-[400px] bg-[#014325]">
           <div className="absolute inset-0">
             <Image
-              src="/images/design-mode/pees%20Backery%20group%20pictures.jpg"
-              alt="Pee's Bakery & Restaurant Kitchen"
+              src="/images/design-mode/team-photo.jpg"
+              alt="Pee's Bakery & Restaurant team"
               fill
               className="object-cover opacity-100"
             />
           </div>
           <div className="relative container mx-auto px-4 h-full flex items-center justify-center">
-            <h1 className="text-4xl md:text-6xl font-bold text-center text-green-900 bg-[rgba(255,255,255,1)] rounded-lg px-3">About Pee's Bakery & Restaurant</h1>
+            <h1 className="text-4xl md:text-6xl font-bold text-center text-green-900 bg-[rgba(255,255,255,1)] rounded-lg px-3">About Pee&apos;s Bakery & Restaurant</h1>
           </div>
         </section>
 
@@ -65,13 +63,13 @@ export default function AboutPage() {
           <div className="max-w-3xl mx-auto text-center space-y-6">
             <h2 className="text-3xl font-bold text-[#0f1419]">Our Story</h2>
             <p className="text-lg text-[#5c6466] leading-relaxed">
-              At Pee's Bakery & Restaurant, we bring the authentic taste of Sierra Leone and Africa straight to your
+              At Pee&apos;s Bakery & Restaurant, we bring the authentic taste of Sierra Leone and Africa straight to your
               table. Located at 90A Regent Road, Old School Junction, Freetown, we are committed to serving fresh,
               delicious, and homely meals every day.
             </p>
             <p className="text-lg text-[#5c6466] leading-relaxed">
               From traditional African dishes to freshly baked bread, pastries, cakes, and refreshing drinks, we cater
-              to your cravings with love and excellence. Whether you're dining in, picking up, or ordering online, we
+              to your cravings with love and excellence. Whether you&apos;re dining in, picking up, or ordering online, we
               guarantee a delightful food experience.
             </p>
             <div className="bg-[#014325] text-white p-6 rounded-xl mt-8">
@@ -116,9 +114,8 @@ export default function AboutPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
             <div className="bg-white border border-[#e5e7e8] rounded-xl p-8">
               <MapPin className="w-12 h-12 text-[#014325] mb-4" />
-              <h3 className="text-2xl font-bold mb-3 text-[#0f1419]">Visit Us</h3>
-              <p className="text-[#5c6466] leading-relaxed mb-4">90A Regent Road, Old School Junction</p>
-              <p className="text-[#5c6466] leading-relaxed mb-4">Freetown, Sierra Leone</p>
+              <h2 className="text-2xl font-bold mb-3 text-[#0f1419]">Visit Us</h2>
+              <p className="text-[#5c6466] leading-relaxed mb-4">{settings.address}</p>
               <p className="text-[#5c6466]">
                 Come experience our authentic African cuisine and fresh bakery items in a warm and welcoming atmosphere.
               </p>
@@ -126,13 +123,12 @@ export default function AboutPage() {
 
             <div className="bg-white border border-[#e5e7e8] rounded-xl p-8">
               <Clock className="w-12 h-12 text-[#014325] mb-4" />
-              <h3 className="text-2xl font-bold mb-3 text-[#0f1419]">Opening Hours</h3>
+              <h2 className="text-2xl font-bold mb-3 text-[#0f1419]">Opening Hours</h2>
               <div className="space-y-2 text-[#5c6466]">
-                <p>Monday - Sunday</p>
-                <p className="font-bold text-[#014325]">Open Daily</p>
+                <p className="font-bold text-[#014325]">{settings.opening_hours}</p>
               </div>
               <p className="text-[#5c6466] mt-4">
-                We're here to serve you delicious meals and fresh baked goods every day.
+                Contact us if you would like to check today&apos;s availability.
               </p>
             </div>
           </div>

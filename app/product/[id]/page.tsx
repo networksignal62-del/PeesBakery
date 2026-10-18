@@ -32,15 +32,18 @@ export default function ProductDetailPage() {
   const [product, setProduct] = useState<Product | null>(null)
   const [allProducts, setAllProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
+  const [retryCount, setRetryCount] = useState(0)
   const buttonRef = useRef<HTMLButtonElement>(null)
 
-  const productId = Number.parseInt(params.id as string)
+  const productId = Number(params.id)
   const isFavorite = product ? isInWishlist(product.id) : false
 
   // Load product data from Supabase
   useEffect(() => {
     async function loadProduct() {
       setLoading(true)
+      setLoadError('')
       try {
         const [productResult, allProductsResult] = await Promise.all([
           getProductById(productId),
@@ -53,22 +56,26 @@ export default function ProductDetailPage() {
           if (productResult.data.variants && productResult.data.variants.length > 0) {
             setSelectedVariant(productResult.data.variants[0])
           }
+        } else if (!productResult.success) {
+          throw new Error('This product could not load. Please try again.')
         }
 
         if (allProductsResult.success) {
           setAllProducts(allProductsResult.data)
         }
       } catch (error) {
-        console.error("Error loading product:", error)
+        setLoadError(error instanceof Error ? error.message : 'This product could not load. Please try again.')
       } finally {
         setLoading(false)
       }
     }
 
-    if (productId) {
+    if (Number.isSafeInteger(productId) && productId > 0) {
       loadProduct()
+    } else {
+      setLoading(false)
     }
-  }, [productId])
+  }, [productId, retryCount])
 
   const handleWishlistToggle = () => {
     if (!product) return
@@ -98,7 +105,7 @@ export default function ProductDetailPage() {
   }
 
   const handleQuantityChange = (delta: number) => {
-    const newQuantity = Math.max(1, quantity + delta)
+    const newQuantity = Math.min(99, Math.max(1, quantity + delta))
     setQuantity(newQuantity)
   }
 
@@ -119,7 +126,8 @@ export default function ProductDetailPage() {
       <div className="min-h-screen bg-[#fffbf5]">
         <Header />
         <main className="container mx-auto px-4 py-16 text-center">
-          <h1 className="text-2xl font-bold mb-4">Product not found</h1>
+          <h1 className="text-2xl font-bold mb-4">{loadError || 'Product not found'}</h1>
+          {loadError && <button type="button" onClick={() => setRetryCount(count => count + 1)} className="mr-3 bg-[#fd4d00] text-white px-6 py-3 rounded-lg">Try again</button>}
           <button onClick={() => router.push("/menu")} className="bg-[#014325] text-white px-6 py-3 rounded-lg">
             Back to Menu
           </button>
