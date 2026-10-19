@@ -2,10 +2,9 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
-import Link from "next/link"
-import Image from "next/image"
 import { createClient } from "@/lib/supabase/client"
 import { updateOrderStatus } from "@/lib/actions/orders"
+import { AdminHeader } from "@/components/admin/admin-header"
 
 const STATUS_COLORS: Record<string, string> = {
   pending: "bg-yellow-100 text-yellow-800",
@@ -89,12 +88,6 @@ export default function AdminDashboardPage() {
     return () => { supabase.removeChannel(channel) }
   }, [router, loadOrders])
 
-  const handleSignOut = async () => {
-    const supabase = createClient()
-    await supabase.auth.signOut()
-    router.push("/admin/login")
-  }
-
   const handleStatusChange = async (orderId: string, newStatus: string) => {
     await updateOrderStatus(orderId, newStatus)
     setOrders((prev) =>
@@ -122,41 +115,10 @@ export default function AdminDashboardPage() {
     })
 
   return (
-    <div className="min-h-screen bg-[#f8f9fa] font-sans">
-      {/* Header */}
-      <header className="bg-[#014325] text-white px-6 py-4 flex items-center justify-between sticky top-0 z-50">
-        <div className="flex items-center gap-3">
-          <div className="relative w-9 h-9 rounded-full overflow-hidden bg-white/10">
-            <Image src="/pees-bakery-logo.png" alt="Logo" fill className="object-contain p-1" />
-          </div>
-          <div>
-            <p className="font-bold text-sm leading-none">Pee&apos;s Bakery Admin</p>
-            <p className="text-green-300 text-xs">Welcome, {adminName}</p>
-          </div>
-        </div>
-        <nav className="flex items-center gap-2">
-          <Link
-            href="/admin"
-            className="px-3 py-1.5 rounded-lg bg-white/20 text-white text-sm font-medium"
-          >
-            Orders
-          </Link>
-          <Link
-            href="/admin/products"
-            className="px-3 py-1.5 rounded-lg hover:bg-white/10 text-white text-sm font-medium transition-colors"
-          >
-            Products
-          </Link>
-          <button
-            onClick={handleSignOut}
-            className="px-3 py-1.5 rounded-lg hover:bg-white/10 text-white text-sm transition-colors ml-2"
-          >
-            Sign Out
-          </button>
-        </nav>
-      </header>
+    <div className="min-h-screen bg-[#f6f8f5] font-sans">
+      <AdminHeader adminName={adminName} active="orders" />
 
-      <main className="max-w-7xl mx-auto px-4 py-6">
+      <main className="mx-auto max-w-[1440px] px-4 py-8 sm:px-6 lg:px-8">
         {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           {[

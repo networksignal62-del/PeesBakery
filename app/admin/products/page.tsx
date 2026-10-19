@@ -2,8 +2,6 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
-import Link from "next/link"
-import Image from "next/image"
 import { createClient } from "@/lib/supabase/client"
 import {
   getAdminProducts,
@@ -12,6 +10,7 @@ import {
   deleteProduct,
   toggleProductActive,
 } from "@/lib/actions/products"
+import { AdminHeader } from "@/components/admin/admin-header"
 
 const CATEGORIES = [
   { id: "african", label: "African Dishes" },
@@ -59,12 +58,6 @@ export default function AdminProductsPage() {
     })
     loadProducts()
   }, [router, loadProducts])
-
-  const handleSignOut = async () => {
-    const supabase = createClient()
-    await supabase.auth.signOut()
-    router.push("/admin/login")
-  }
 
   const openCreate = () => {
     setEditingProduct(null)
@@ -133,32 +126,10 @@ export default function AdminProductsPage() {
   })
 
   return (
-    <div className="min-h-screen bg-[#f8f9fa] font-sans">
-      {/* Header */}
-      <header className="bg-[#014325] text-white px-6 py-4 flex items-center justify-between sticky top-0 z-50">
-        <div className="flex items-center gap-3">
-          <div className="relative w-9 h-9 rounded-full overflow-hidden bg-white/10">
-            <Image src="/pees-bakery-logo.png" alt="Logo" fill className="object-contain p-1" />
-          </div>
-          <div>
-            <p className="font-bold text-sm leading-none">Pee&apos;s Bakery Admin</p>
-            <p className="text-green-300 text-xs">Welcome, {adminName}</p>
-          </div>
-        </div>
-        <nav className="flex items-center gap-2">
-          <Link href="/admin" className="px-3 py-1.5 rounded-lg hover:bg-white/10 text-white text-sm font-medium transition-colors">
-            Orders
-          </Link>
-          <Link href="/admin/products" className="px-3 py-1.5 rounded-lg bg-white/20 text-white text-sm font-medium">
-            Products
-          </Link>
-          <button onClick={handleSignOut} className="px-3 py-1.5 rounded-lg hover:bg-white/10 text-white text-sm transition-colors ml-2">
-            Sign Out
-          </button>
-        </nav>
-      </header>
+    <div className="min-h-screen bg-[#f6f8f5] font-sans">
+      <AdminHeader adminName={adminName} active="products" />
 
-      <main className="max-w-7xl mx-auto px-4 py-6">
+      <main className="mx-auto max-w-[1440px] px-4 py-8 sm:px-6 lg:px-8">
         {/* Top bar */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
           <h1 className="text-2xl font-bold text-[#0f1419]">Products</h1>
