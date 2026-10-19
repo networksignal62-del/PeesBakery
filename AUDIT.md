@@ -1,6 +1,6 @@
 # Pee's Bakery release audit
 
-Checked on 18 October 2026. This records the local release candidate in the
+Checked on 18–19 October 2026. This records the local release candidate in the
 `PeesBakery` repository and its matching staff panel in `Peesbakery-admin`.
 It does not certify the current live deployment or the real Supabase project.
 
@@ -33,17 +33,17 @@ It does not certify the current live deployment or the real Supabase project.
 ## Verified locally
 
 - `pnpm build` in the customer repository and `npm run build` in the admin
-  repository completed. TypeScript passed as part of both builds.
-- `pnpm lint` completed with **0 errors, 37 warnings**. `npm run lint` in the
-  admin repository completed with **0 errors, 20 warnings**. Warnings include
-  React effect/dependency and image optimization advice. React Compiler is not
-  enabled; its effect and declaration diagnostics remain warnings in the lint
-  configuration. They should be addressed before enabling the compiler.
+  repository completed on Next.js 16.4.2. TypeScript passed as part of both
+  builds. Node.js 22 or newer is required by the current Supabase clients.
+- `pnpm lint` and `npm run lint -- --quiet` completed with zero errors after the
+  dependency update. React effect/dependency and image optimization warnings
+  remain. React Compiler is not enabled; its effect and declaration diagnostics
+  remain warnings in the lint configuration. Address them before enabling it.
 - `node scripts/qa-database.mjs` used disposable local PostgreSQL (PGlite),
   applied the migration twice, and checked atomic catalog/settings rollback,
   role restrictions, guest price tamper rejection, valid order totals, and
   authorized status history. This is not a test against the real Supabase schema.
-- `node scripts/qa-browser.mjs` checked `/`, `/menu`, `/about`, `/contact`,
+- After the Next.js update, `node scripts/qa-browser.mjs` checked `/`, `/menu`, `/about`, `/contact`,
   `/cart`, `/wishlist`, and the 404 route in production mode at 320, 390, 768,
   1024, and 1440 CSS pixels. Those runs found no horizontal overflow or broken
   images, no images lacking an `alt` attribute, one main heading per page, and no
@@ -53,8 +53,16 @@ It does not certify the current live deployment or the real Supabase project.
   WhatsApp draft, and the 404 recovery link. WhatsApp was stubbed; no message
   was sent. The public SEO routes responded with HTTP 200. With no Supabase
   configuration, `/admin` returned HTTP 503 and the staff API denied access.
-- `node scripts/qa-bundle.mjs` estimated about 171 KB of compressed JavaScript
-  per tested public page, with a 66 KB largest chunk, in this local build.
+- `node scripts/qa-bundle.mjs` measured 166 KB of compressed JavaScript on the
+  homepage and 176 KB on the other tested public pages, with a 70 KB largest
+  chunk, in this local build.
+- Production dependency audits after the update reported **zero high or
+  critical findings** in both repositories. The customer audit still reported
+  one low and one moderate finding; the admin production audit reported zero.
+  Full audits including development tooling reported eight high findings in the
+  customer repository and five in the admin repository. Several are in the
+  Next.js ESLint toolchain; npm's proposed major-version downgrade was not
+  applied. Recheck these before further dependency upgrades.
 
 ## Required before production release
 
@@ -62,7 +70,8 @@ It does not certify the current live deployment or the real Supabase project.
    the connected GitHub app for both repositories under the `networksignal62-del`
    owner account to open the review requests. Connect the Vercel project serving
    `peesbakery.rest`; the connected Vercel account still does not show a bakery
-   project. Publish and smoke-test the new build on the actual domain, including
+   project. The connected Supabase account also does not show a bakery project.
+   Publish and smoke-test the new build on the actual domain, including
    `/admin`, `/menu`, `/robots.txt`, and `/sitemap.xml`.
 2. Rotate the Supabase service-role key and password previously exposed in the
    public admin repository's Git history. Removing source files does not revoke

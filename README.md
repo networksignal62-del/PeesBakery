@@ -4,7 +4,7 @@ This Next.js application serves the customer website at `https://peesbakery.rest
 
 ## Local setup
 
-Use Node.js 20 or newer and pnpm.
+Use Node.js 22 or newer and pnpm. Supabase's client libraries no longer support Node.js 20.
 
 ```bash
 pnpm install --frozen-lockfile
