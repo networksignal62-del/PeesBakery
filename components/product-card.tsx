@@ -5,7 +5,7 @@ import type React from "react"
 import { useState, useRef } from "react"
 import Image from "next/image"
 import Link from "next/link"
-import type { Product } from "@/lib/types"
+import type { Product, ProductVariant } from "@/lib/types"
 import { formatPrice } from "@/lib/utils-app"
 import { Plus, Minus, Heart } from 'lucide-react'
 import { useCart } from "@/hooks/use-cart"
@@ -21,6 +21,9 @@ interface ProductCardProps {
 export function ProductCard({ product }: ProductCardProps) {
   const [quantity, setQuantity] = useState(1) // Start with quantity of 1 instead of 0
   const [isExpanded, setIsExpanded] = useState(false) // New state to track if the add button has been clicked
+  const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(
+    product.variants && product.variants.length > 0 ? product.variants[0] : null
+  )
   const [flyingAnimation, setFlyingAnimation] = useState(false)
   const [animationStart, setAnimationStart] = useState({ x: 0, y: 0 })
   const [showCartModal, setShowCartModal] = useState(false)
@@ -31,14 +34,13 @@ export function ProductCard({ product }: ProductCardProps) {
   const isFavorite = isInWishlist(product.id)
 
   const handleClick = () => {
-    console.log("[v0] Product card clicked:", product.id, product.name)
+    // Link navigation handled by Next.js
   }
 
   const handleWishlistToggle = (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
     toggleWishlist(product)
-    console.log("[v0] Wishlist toggled for:", product.name, "isFavorite:", !isFavorite)
 
     toast({
       title: isFavorite ? "Removed from Wishlist" : "Added to Wishlist ❤️",
@@ -60,12 +62,11 @@ export function ProductCard({ product }: ProductCardProps) {
       setFlyingAnimation(true)
     }
 
-    addToCart(product, quantity, [])
-    console.log("[v0] Add to cart from product card:", product.name, "qty:", quantity)
+    addToCart(product, quantity, [], selectedVariant)
 
     toast({
       title: "Added to Cart! 🛒",
-      description: `${product.name} x${quantity} - ${formatPrice(product.price * quantity)}`,
+      description: `${product.name}${selectedVariant ? ` (${selectedVariant.name})` : ""} x${quantity}`,
       duration: 3000,
     })
 
@@ -80,8 +81,6 @@ export function ProductCard({ product }: ProductCardProps) {
 
     const newQuantity = Math.max(1, quantity + delta) // Minimum quantity is 1, not 0
     setQuantity(newQuantity)
-
-    console.log("[v0] Quantity updated:", newQuantity)
   }
 
   return (
@@ -109,7 +108,7 @@ export function ProductCard({ product }: ProductCardProps) {
 
             {/* Price Badge */}
             <span className="absolute top-3 right-3 bg-[#fd4d00] text-white text-sm font-bold px-3 py-1.5 rounded-full shadow-md transition-all duration-300 group-hover:scale-110 group-hover:shadow-lg">
-              {formatPrice(product.price)}
+              {formatPrice(selectedVariant ? selectedVariant.price : product.price)}
             </span>
 
             <button
@@ -144,6 +143,35 @@ export function ProductCard({ product }: ProductCardProps) {
             <p className="text-sm text-[#5c6466] line-clamp-2 leading-relaxed mb-3 flex-1 transition-all duration-300">
               {product.description}
             </p>
+
+            {/* Variant Selector */}
+            {product.variants && product.variants.length > 0 && (
+              <div className="mb-3 pb-3 border-b border-[#e5e7e8]">
+                <p className="text-xs font-semibold text-[#0f1419] mb-2 uppercase tracking-wide">Select Size / Type</p>
+                <div className="space-y-2">
+                  {product.variants.map((variant) => (
+                    <label
+                      key={variant.id}
+                      className="flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all duration-200 hover:bg-[#f5f5f0]"
+                    >
+                      <input
+                        type="radio"
+                        name={`variant-${product.id}`}
+                        checked={selectedVariant?.id === variant.id}
+                        onChange={() => setSelectedVariant(variant)}
+                        className="w-4 h-4 accent-[#fd4d00] cursor-pointer"
+                      />
+                      <span className="text-sm text-[#0f1419] font-medium flex-1">
+                        {variant.name}
+                      </span>
+                      <span className="text-sm font-bold text-[#fd4d00]">
+                        {formatPrice(variant.price)}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div className="mt-auto">
               {!isExpanded ? (

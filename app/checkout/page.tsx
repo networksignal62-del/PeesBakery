@@ -49,14 +49,14 @@ export default function CheckoutPage() {
     }
   }, [cart.length, mounted, showConfirmation, router, cart])
 
-  const deliveryFees = {
-    standard: 25, // Updated Standard Delivery price to 25
+  const deliveryFees: Record<string, number> = {
+    standard: 25,
     express: 25,
     pickup: 0,
   }
 
   const subtotal = getCartTotal()
-  const deliveryFee = deliveryFees[deliveryOption]
+  const deliveryFee = deliveryFees[deliveryOption] ?? 0
   const total = subtotal + deliveryFee
 
   const handleDeliveryOptionChange = (option: string) => {
@@ -146,11 +146,11 @@ export default function CheckoutPage() {
         tax: 0,
         discount: 0,
         total,
-        deliveryOption,
-        paymentMethod,
+        deliveryOption: deliveryOption as "standard" | "express" | "pickup",
+        paymentMethod: paymentMethod as "cod" | "orange-money" | "vault" | "afrimoney",
         status: "confirmed",
         createdAt: new Date(),
-        estimatedDelivery: calculateEstimatedDelivery(deliveryOption),
+        estimatedDelivery: calculateEstimatedDelivery(deliveryOption as "standard" | "express" | "pickup"),
       }
 
       console.log("[v0] Order object created")
