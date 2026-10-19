@@ -18,10 +18,10 @@ Copy `.env.example` to `.env.local` and fill in your own Supabase project values
 ## Required release order
 
 1. Rotate the Supabase service-role key and any password previously embedded in the public admin repository. Removing those files in a new commit does not erase Git history.
-2. Back up the Supabase database. On a new database, run `scripts/001_create_tables.sql`; on the existing database, review its current schema. Apply `scripts/002_staff_roles_and_safe_orders.sql` before deploying this code. The migration replaces existing policies, adds staff roles, and makes guest order totals database-calculated.
+2. Back up the Supabase database. On a new database, run `scripts/001_create_tables.sql`; on the existing database, review its current schema. Apply `scripts/002_staff_roles_and_safe_orders.sql` before connecting the hosted app to that database. The migration replaces existing policies, adds staff roles, and makes guest order totals database-calculated.
 3. In Supabase Auth, create the bakery owner's user and add a corresponding `admin_profiles` row with `role = 'super_admin'` and `is_active = true`. Use the real Auth user ID. Do not put an owner password in SQL or source files.
-4. Configure `https://peesbakery.rest/admin/welcome` in Supabase Auth's allowed redirect URLs. Configure production email delivery for staff invitations.
-5. Point `peesbakery.rest` at the Vercel project deploying **this** repository, set the environment variables below, and deploy. The old separate admin deployment is not needed for the `/admin` path.
+4. Configure `https://pees-bakery-site.vercel.app/admin/welcome` in Supabase Auth's allowed redirect URLs for testing, and add `https://peesbakery.rest/admin/welcome` before domain cutover. Configure production email delivery for staff invitations.
+5. Add the three Supabase environment variables below to the new `pees-bakery-site` Vercel project, then redeploy. `NEXT_PUBLIC_SITE_URL` is currently set to `https://pees-bakery-site.vercel.app` for testing. After live database checks pass, move `peesbakery.rest` to that project, change `NEXT_PUBLIC_SITE_URL` to `https://peesbakery.rest`, update the Supabase Auth redirect allowlist, and redeploy. The old separate admin deployment is not needed for the `/admin` path.
 6. Test checkout, WhatsApp handoff, owner invitation, waiter access, password change, and role restrictions against the deployed URL before announcing the release.
 
 Required Vercel environment variables:
@@ -31,7 +31,7 @@ Required Vercel environment variables:
 | `NEXT_PUBLIC_SUPABASE_URL` | Browser and server |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Browser and server |
 | `SUPABASE_SERVICE_ROLE_KEY` | Server only; required for staff invitations and product image uploads |
-| `NEXT_PUBLIC_SITE_URL` | `https://peesbakery.rest` |
+| `NEXT_PUBLIC_SITE_URL` | Current deployment origin; switch to `https://peesbakery.rest` after domain cutover |
 
 The public menu reflects active products in Supabase. General WhatsApp, checkout WhatsApp, and order calls have separate settings and retain their current numbers.
 

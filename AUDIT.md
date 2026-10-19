@@ -64,15 +64,34 @@ It does not certify the current live deployment or the real Supabase project.
   Next.js ESLint toolchain; npm's proposed major-version downgrade was not
   applied. Recheck these before further dependency upgrades.
 
+## Hosted build (19 October 2026)
+
+- The clean `651ff83` customer checkout was deployed from local source to the
+  new Vercel project `alhassanojoekoromas-projects/pees-bakery-site`.
+  Deployment `dpl_ByUmfqFwMqyF3vQivBxBHysQP55x` is READY and is aliased at
+  `https://pees-bakery-site.vercel.app`. The project is not Git-connected;
+  future source changes need an explicit deployment until Git linking is set up.
+- Vercel's Next.js build and TypeScript passed. `/`, `/menu`, `/robots.txt`,
+  `/sitemap.xml`, and `/opengraph-image` returned HTTP 200. `/admin` and
+  `/admin/login` returned HTTP 503 without Supabase configuration, as intended.
+- Hosted browser checks at 320, 390, 768, 1024, and 1440 CSS pixels found no
+  horizontal overflow or missing image alt text, and one main heading on each
+  tested public page. Direct asset requests and follow-up image decoding passed;
+  a few initial 1.5-second samples were still loading large images. Mobile
+  navigation, the unsent WhatsApp draft, and the 404 recovery link passed.
+- `NEXT_PUBLIC_SITE_URL` is set to the Vercel alias for testing. The three
+  Supabase variables are not configured. `peesbakery.rest` still serves its
+  prior Vercel deployment; the new project has not been attached to that domain.
+
 ## Required before production release
 
 1. GitHub collaborator write access to both repositories is confirmed. Enable
    the connected GitHub app for both repositories under the `networksignal62-del`
-   owner account to open the review requests. Connect the Vercel project serving
-   `peesbakery.rest`; the connected Vercel account still does not show a bakery
-   project. The connected Supabase account also does not show a bakery project.
-   Publish and smoke-test the new build on the actual domain, including
-   `/admin`, `/menu`, `/robots.txt`, and `/sitemap.xml`.
+   owner account to open the review requests. The new Vercel project is hosted,
+   but the connected Supabase account still does not show the bakery project.
+   After database checks pass, attach `peesbakery.rest` to the new Vercel project
+   and smoke-test `/admin`, `/menu`, `/robots.txt`, and `/sitemap.xml` on the
+   actual domain.
 2. Rotate the Supabase service-role key and password previously exposed in the
    public admin repository's Git history. Removing source files does not revoke
    those credentials. Do not put replacement secrets in Git or chat.
@@ -82,13 +101,14 @@ It does not certify the current live deployment or the real Supabase project.
    existing data meets its constraints. Confirm the `images` storage bucket
    serves public product images and restricts writes to the server upload path.
 4. Create the owner's Supabase Auth user and active `super_admin` profile using
-   the actual Auth user ID. Set production environment variables and Auth email
-   delivery/redirect URLs as described in `README.md`.
+   the actual Auth user ID. Add the three missing production Supabase environment
+   variables, redeploy, and configure Auth email delivery and redirect URLs as
+   described in `README.md`.
 5. Test real owner invitation, password change, manager/staff/waiter access,
    order creation and status changes, image upload, checkout WhatsApp handoff,
    and phone/tablet/laptop layouts with the live database. Local no-data checks
    do not establish those integrations.
 
 The earlier public deployment was observed serving `/admin` and `/menu`, while
-`/robots.txt` and `/sitemap.xml` returned 404. Those routes exist in this local
-release candidate; they need to be checked again after deployment.
+`/robots.txt` and `/sitemap.xml` returned 404. Those routes now respond on the
+new Vercel alias, but the custom domain still needs a cutover and smoke test.
