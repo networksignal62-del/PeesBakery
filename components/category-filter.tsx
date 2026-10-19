@@ -13,22 +13,12 @@ interface CategoryFilterProps {
   categories?: Category[]
 }
 
-// Default categories as fallback
-const defaultCategories: Category[] = [
-  { id: "all", name: "All Items", display_order: 0 },
-  { id: "african", name: "African Dishes", display_order: 1 },
-  { id: "bakery", name: "Bakery & Cakes", display_order: 2 },
-  { id: "fast-food", name: "Burgers & Shawarma", display_order: 3 },
-  { id: "drinks", name: "Drinks & Desserts", display_order: 4 },
-]
-
 export function CategoryFilter({
   selectedCategory,
   onCategoryChange,
   categories,
 }: CategoryFilterProps) {
-  // Use provided categories or fallback to defaults
-  const displayCategories = categories && categories.length > 0 ? categories : defaultCategories
+  const displayCategories = [{ id: 'all', name: 'All Items' }, ...(categories || []).filter(category => category.id !== 'all')]
 
   const handleCategoryClick = (categoryId: string) => {
     onCategoryChange(categoryId)

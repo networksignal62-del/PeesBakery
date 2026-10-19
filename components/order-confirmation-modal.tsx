@@ -11,14 +11,14 @@ interface OrderConfirmationModalProps {
   order: Order | null
   isOpen: boolean
   onClose: () => void
+  whatsappUrl?: string
 }
 
-export function OrderConfirmationModal({ order, isOpen, onClose }: OrderConfirmationModalProps) {
+export function OrderConfirmationModal({ order, isOpen, onClose, whatsappUrl }: OrderConfirmationModalProps) {
   const [showConfetti, setShowConfetti] = useState(false)
 
   useEffect(() => {
     if (isOpen && order) {
-      console.log("[v0] Order confirmation modal shown")
       setShowConfetti(true)
     }
   }, [isOpen, order])
@@ -34,7 +34,7 @@ export function OrderConfirmationModal({ order, isOpen, onClose }: OrderConfirma
         <div className="absolute inset-0 bg-[#0f1419]/75 backdrop-blur-sm" onClick={onClose} />
 
         {/* Modal */}
-        <div className="relative bg-white rounded-2xl p-8 max-w-md w-full shadow-2xl animate-[modal-enter_0.3s_ease-out]">
+        <div role="dialog" aria-modal="true" aria-labelledby="order-received-title" className="relative bg-white rounded-2xl p-8 max-w-md w-full shadow-2xl animate-[modal-enter_0.3s_ease-out]">
           {/* Close Button */}
           <button
             onClick={onClose}
@@ -50,29 +50,20 @@ export function OrderConfirmationModal({ order, isOpen, onClose }: OrderConfirma
           </div>
 
           {/* Title */}
-          <h2 className="text-3xl font-bold text-center mb-2 text-[#0f1419]">Order Confirmed! 🎉</h2>
-          <p className="text-center text-[#5c6466] mb-6">Thank you for your order</p>
+          <h2 id="order-received-title" className="text-3xl font-bold text-center mb-2 text-[#0f1419]">Order received! 🎉</h2>
+          <p className="text-center text-[#5c6466] mb-6">The team will review and confirm your order.</p>
 
           {/* Order Details */}
           <div className="bg-[#fffbf5] rounded-lg p-4 mb-6 space-y-3">
             <div>
               <p className="text-sm text-[#5c6466]">Order Reference</p>
-              <p className="text-xl font-bold text-[#014325]">{order.reference}</p>
+              <p className="text-base sm:text-xl font-bold text-[#014325] break-all">{order.reference}</p>
             </div>
 
-            <div>
-              <p className="text-sm text-[#5c6466]">Estimated Delivery</p>
-              <p className="font-medium">
-                {order.estimatedDelivery.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-              </p>
-            </div>
-
-            <div>
+            {order.deliveryOption !== 'pickup' && <div>
               <p className="text-sm text-[#5c6466]">Delivery Address</p>
-              <p className="font-medium">
-                {order.deliveryAddress.street}, {order.deliveryAddress.city}
-              </p>
-            </div>
+              <p className="font-medium">{order.deliveryAddress.street}, {order.deliveryAddress.city}</p>
+            </div>}
 
             <div>
               <p className="text-sm text-[#5c6466]">Total Amount</p>
@@ -81,10 +72,11 @@ export function OrderConfirmationModal({ order, isOpen, onClose }: OrderConfirma
           </div>
 
           {/* Receipt Info */}
-          <p className="text-sm text-center text-[#5c6466] mb-6">Receipt sent to {order.customer.phone}</p>
+          <p className="text-sm text-center text-[#5c6466] mb-6">Save your order reference for follow-up. No SMS receipt has been sent.</p>
 
           {/* Action Buttons */}
           <div className="space-y-3">
+            {whatsappUrl && <a href={whatsappUrl} target="_blank" rel="noopener noreferrer" className="block w-full border border-[#014325] text-[#014325] py-3 rounded-lg font-medium text-center">Send order details on WhatsApp</a>}
             <Link
               href="/"
               onClick={onClose}

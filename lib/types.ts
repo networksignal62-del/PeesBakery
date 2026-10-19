@@ -1,4 +1,4 @@
-// Type definitions for Fresh Cuisine restaurant app
+// Type definitions for Pee's Bakery & Restaurant
 
 export interface AddOn {
   id: number
@@ -16,7 +16,7 @@ export interface ProductVariant {
 export interface Product {
   id: number
   name: string
-  category: "noodles" | "seafood" | "chicken" | "rice" | "salads" | "african" | "bakery" | "fast-food" | "drinks"
+  category: string
   price: number
   image: string
   images?: string[]
@@ -63,9 +63,8 @@ export interface Order {
   tax: number
   discount: number
   total: number
-  deliveryOption: "standard" | "express" | "pickup"
-  paymentMethod: "cod" | "orange-money" | "vault" | "afrimoney"
+  deliveryOption: "standard" | "pickup"
+  paymentMethod: "cod" | "orange-money" | "afrimoney"
   status: "pending" | "confirmed" | "preparing" | "delivering" | "delivered"
   createdAt: Date
-  estimatedDelivery: Date
 }

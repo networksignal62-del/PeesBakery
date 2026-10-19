@@ -2,26 +2,32 @@
 
 import type React from "react"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useRouter } from 'next/navigation'
 import Image from "next/image"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import { useCart } from "@/hooks/use-cart"
-import { formatPrice, generateOrderReference, calculateEstimatedDelivery } from "@/lib/utils-app"
+import { formatPrice } from "@/lib/utils-app"
+import { getSiteSettings } from "@/lib/actions/products"
 import type { Order, Customer, DeliveryAddress } from "@/lib/types"
 import { OrderConfirmationModal } from "@/components/order-confirmation-modal"
 import { saveOrder } from "@/lib/actions/orders"
 
 export default function CheckoutPage() {
   const router = useRouter()
-  const { cart, getCartTotal, clearCart } = useCart()
+  const { cart, getCartTotal, clearCart, isLoaded: cartLoaded } = useCart()
   const [isProcessing, setIsProcessing] = useState(false)
   const [completedOrder, setCompletedOrder] = useState<Order | null>(null)
   const [showConfirmation, setShowConfirmation] = useState(false)
+  const [whatsappUrl, setWhatsappUrl] = useState("")
+  const [checkoutError, setCheckoutError] = useState("")
+  const [deliveryFeeAmount, setDeliveryFeeAmount] = useState(25)
+  const [checkoutWhatsapp, setCheckoutWhatsapp] = useState('23233680260')
+  const [settingsReady, setSettingsReady] = useState(false)
   const [mounted, setMounted] = useState(false)
-  const [deliveryOption, setDeliveryOption] = useState("standard")
-  const [paymentMethod, setPaymentMethod] = useState("cod")
+  const [deliveryOption, setDeliveryOption] = useState<Order['deliveryOption']>("standard")
+  const [paymentMethod, setPaymentMethod] = useState<Order['paymentMethod']>("cod")
   const [customer, setCustomer] = useState<Customer>({ name: "", phone: "", email: "" })
   const [deliveryAddress, setDeliveryAddress] = useState<DeliveryAddress>({
     street: "",
@@ -29,111 +35,110 @@ export default function CheckoutPage() {
     zipCode: "",
     instructions: "",
   })
-  const [orangeMoneyTransaction, setOrangeMoneyTransaction] = useState({
-    transactionId: "",
-    phoneNumber: "",
-    accountName: "",
-  })
+  const submittingRef = useRef(false)
 
   useEffect(() => {
     setMounted(true)
-    console.log("[v0] Checkout page mounted")
   }, [])
 
   useEffect(() => {
-    console.log("[v0] Cart check - items:", cart.length)
+    getSiteSettings().then(result => {
+      if (!result.success) {
+        setCheckoutError('Delivery pricing is unavailable. Refresh the page before ordering.')
+        return
+      }
+      const rawFee = result.data.find(setting => setting.key === 'delivery_fee')?.value
+      const configuredCheckout = result.data.find(setting => setting.key === 'checkout_whatsapp')?.value?.replace(/\D/g, '')
+      if (configuredCheckout) setCheckoutWhatsapp(configuredCheckout)
+      if (result.data.find(setting => setting.key === 'is_open')?.value === 'false') {
+        setCheckoutError('Online orders are temporarily closed. Please call the restaurant.')
+        return
+      }
+      const fee = Number(rawFee ?? 25)
+      if (!Number.isFinite(fee) || fee < 0 || fee > 10000) {
+        setCheckoutError('Delivery pricing is unavailable. Please contact the restaurant.')
+        return
+      }
+      setDeliveryFeeAmount(fee)
+      setSettingsReady(true)
+    }).catch(() => setCheckoutError('Delivery pricing is unavailable. Refresh the page before ordering.'))
+  }, [])
 
-    if (mounted && cart.length === 0 && !showConfirmation) {
-      console.log("[v0] Empty cart detected, redirecting to cart page")
+  useEffect(() => {
+
+    if (mounted && cartLoaded && cart.length === 0 && !showConfirmation) {
       router.push("/cart")
     }
-  }, [cart.length, mounted, showConfirmation, router, cart])
+  }, [cart.length, cartLoaded, mounted, showConfirmation, router])
 
-  const deliveryFees: Record<string, number> = {
-    standard: 25,
-    express: 25,
+  const deliveryFees = {
+    standard: deliveryFeeAmount,
     pickup: 0,
   }
 
   const subtotal = getCartTotal()
-  const deliveryFee = deliveryFees[deliveryOption] ?? 0
+  const deliveryFee = deliveryFees[deliveryOption]
   const total = subtotal + deliveryFee
 
-  const handleDeliveryOptionChange = (option: string) => {
+  const handleDeliveryOptionChange = (option: Order['deliveryOption']) => {
     setDeliveryOption(option)
-    console.log("[v0] Delivery option changed to:", option)
   }
 
-  const handlePaymentMethodChange = (method: string) => {
+  const handlePaymentMethodChange = (method: Order['paymentMethod']) => {
     setPaymentMethod(method)
-    console.log("[v0] Payment method changed to:", method)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    console.log("[v0] ==========================================")
-    console.log("[v0] FORM SUBMITTED - handleSubmit called!")
-    console.log("[v0] ==========================================")
+    if (submittingRef.current || !isFormValid) return
+    setCheckoutError("")
 
     const orderItems = [...cart].map((item) => ({
+      productId: item.productId,
       product: { ...item.product },
       quantity: item.quantity,
       totalPrice: item.totalPrice,
       selectedVariant: item.selectedVariant,
+      selectedAddOns: item.selectedAddOns,
     }))
 
-    console.log("[v0] Order items captured:", orderItems.length)
-    console.log("[v0] Cart length at submit:", cart.length)
-    console.log("[v0] Customer name:", customer.name)
-    console.log("[v0] Customer phone:", customer.phone)
 
     if (orderItems.length === 0) {
-      console.error("[v0] ERROR: No items in order!")
       alert("Your cart is empty. Please add items before checkout.")
       return
     }
 
-    console.log("[v0] Order items details:")
-    orderItems.forEach((item, idx) => {
-      console.log(`[v0]   ${idx + 1}. ${item.product.name} x${item.quantity} = Le ${item.totalPrice}`)
-    })
-
+    submittingRef.current = true
     setIsProcessing(true)
-    console.log("[v0] Processing started...")
 
     try {
-      const orderRef = generateOrderReference()
-
       // Save order to Supabase
       const deliveryMethodMapped =
         deliveryOption === "pickup" ? "pickup" : "delivery"
       const paymentMethodMapped =
         paymentMethod === "orange-money"
           ? "orange_money"
-          : paymentMethod === "vault"
+          : paymentMethod === "afrimoney"
           ? "afrimoney"
           : "cash"
 
-      await saveOrder({
+      const savedOrder = await saveOrder({
         customerName: customer.name,
         customerPhone: customer.phone,
-        customerAddress: `${deliveryAddress.street}, ${deliveryAddress.city} ${deliveryAddress.zipCode}${deliveryAddress.instructions ? ` - ${deliveryAddress.instructions}` : ""}`,
+        customerAddress: deliveryMethodMapped === 'pickup' ? '' : `${deliveryAddress.street}, ${deliveryAddress.city}${deliveryAddress.zipCode ? ` ${deliveryAddress.zipCode}` : ''}`,
         deliveryMethod: deliveryMethodMapped,
         paymentMethod: paymentMethodMapped,
-        subtotal,
-        deliveryFee,
-        total,
+        expectedTotal: total,
         notes: deliveryAddress.instructions,
         items: orderItems.map((item) => ({
           productId: item.product.id,
-          productName: item.product.name,
           variantName: item.selectedVariant?.name,
           quantity: item.quantity,
-          unitPrice: item.product.price,
-          totalPrice: item.totalPrice,
+          addons: item.selectedAddOns?.map(addon => ({ name: addon.name })) ?? [],
         })),
       })
-      console.log("[v0] Generated order reference:", orderRef)
+      if (!savedOrder.success) throw new Error(savedOrder.error)
+      const orderRef = savedOrder.orderId
 
       const order: Order = {
         id: orderRef,
@@ -141,94 +146,67 @@ export default function CheckoutPage() {
         customer,
         deliveryAddress,
         items: orderItems,
-        subtotal,
-        deliveryFee,
+        subtotal: savedOrder.subtotal,
+        deliveryFee: savedOrder.deliveryFee,
         tax: 0,
         discount: 0,
-        total,
-        deliveryOption: deliveryOption as "standard" | "express" | "pickup",
-        paymentMethod: paymentMethod as "cod" | "orange-money" | "vault" | "afrimoney",
-        status: "confirmed",
+        total: savedOrder.total,
+        deliveryOption,
+        paymentMethod,
+        status: "pending",
         createdAt: new Date(),
-        estimatedDelivery: calculateEstimatedDelivery(deliveryOption as "standard" | "express" | "pickup"),
       }
 
-      console.log("[v0] Order object created")
-      console.log("[v0] Building WhatsApp message...")
 
       const itemsList = orderItems
         .map((item, idx) => {
           const variantText = item.selectedVariant ? ` (${item.selectedVariant.name})` : ""
           return `${idx + 1}. ${item.product.name}${variantText} x${item.quantity} - Le ${item.totalPrice}`
         })
-        .join("%0A")
+        .join("\n")
 
-      console.log("[v0] Items list created, length:", itemsList.length)
 
-      const orangeMoneyDetails =
-        paymentMethod === "orange-money"
-          ? `%0A%0A*Orange Money Transaction:*%0ATransaction ID: ${orangeMoneyTransaction.transactionId}${orangeMoneyTransaction.phoneNumber ? `%0APhone: ${orangeMoneyTransaction.phoneNumber}` : ""}${orangeMoneyTransaction.accountName ? `%0AAccount Name: ${orangeMoneyTransaction.accountName}` : ""}`
-          : ""
+      const message = [
+        `New order from Pee's Bakery`,
+        `Order reference: ${orderRef}`,
+        `Customer: ${customer.name}`,
+        `Phone: ${customer.phone}`,
+        customer.email ? `Email: ${customer.email}` : '',
+        deliveryMethodMapped === 'pickup' ? 'Pickup' : `Delivery: ${deliveryAddress.street}, ${deliveryAddress.city}${deliveryAddress.zipCode ? ` ${deliveryAddress.zipCode}` : ''}`,
+        deliveryAddress.instructions ? `Instructions: ${deliveryAddress.instructions}` : '',
+        `Items:\n${itemsList}`,
+        `Subtotal: Le ${savedOrder.subtotal}`,
+        `Delivery fee: Le ${savedOrder.deliveryFee}`,
+        `Total: Le ${savedOrder.total}`,
+        `Payment preference: ${paymentMethod === 'cod' ? 'Cash' : paymentMethod === 'orange-money' ? 'Orange Money' : 'Afrimoney'}`,
+        'Please confirm availability and payment instructions.',
+      ].filter(Boolean).join('\n\n')
+      const whatsappURL = `https://wa.me/${checkoutWhatsapp}?text=${encodeURIComponent(message)}`
 
-      const message = `*New Order from Pee's Bakery*%0A%0A*Order Reference:* ${orderRef}%0A%0A*Customer Details:*%0AName: ${customer.name}%0APhone: ${customer.phone}${customer.email ? `%0AEmail: ${customer.email}` : ""}%0A%0A*Delivery Address:*%0A${deliveryAddress.street}%0A${deliveryAddress.city}, ${deliveryAddress.zipCode}${deliveryAddress.instructions ? `%0AInstructions: ${deliveryAddress.instructions}` : ""}%0A%0A*Order Items:*%0A${itemsList}%0A%0A*Order Summary:*%0ASubtotal: Le ${subtotal}%0ADelivery (${deliveryOption}): Le ${deliveryFee}%0A*Total: Le ${total}*%0A%0A*Payment Method:* ${paymentMethod.toUpperCase()}${orangeMoneyDetails}%0A%0A*Estimated Delivery:* ${order.estimatedDelivery.toLocaleString()}`
 
-      console.log("[v0] WhatsApp message created")
-      console.log("[v0] Message length:", message.length)
-      console.log("[v0] Message preview:", message.substring(0, 200))
-
-      const whatsappNumber = "232033680260"
-      const whatsappURL = `https://wa.me/${whatsappNumber}?text=${message}`
-
-      console.log("[v0] WhatsApp URL length:", whatsappURL.length)
-      console.log("[v0] Opening WhatsApp...")
-
-      window.open(whatsappURL, "_blank")
-      console.log("[v0] WhatsApp window opened")
+      setWhatsappUrl(whatsappURL)
 
       setCompletedOrder(order)
       setShowConfirmation(true)
 
-      console.log("[v0] Clearing cart...")
       clearCart()
-      console.log("[v0] Cart cleared")
 
-      console.log("[v0] ==========================================")
-      console.log("[v0] ORDER COMPLETED SUCCESSFULLY!")
-      console.log("[v0] ==========================================")
     } catch (error) {
-      console.error("[v0] ==========================================")
-      console.error("[v0] ERROR during order submission:")
-      console.error("[v0]", error)
-      console.error("[v0] ==========================================")
-      alert("Failed to place order. Please try again.")
+      setCheckoutError(error instanceof Error ? error.message : 'Order could not be saved. Please try again.')
     } finally {
+      submittingRef.current = false
       setIsProcessing(false)
-      console.log("[v0] Processing finished")
     }
   }
 
   const isFormValid = Boolean(
     customer.name.trim() &&
       customer.phone.trim() &&
-      deliveryAddress.street.trim() &&
-      deliveryAddress.city.trim() &&
-      deliveryAddress.zipCode.trim() &&
-      cart.length > 0 &&
-      (paymentMethod !== "orange-money" || orangeMoneyTransaction.transactionId.trim()),
+      (deliveryOption === 'pickup' || (deliveryAddress.street.trim() && deliveryAddress.city.trim())) &&
+      cart.length > 0 && settingsReady,
   )
 
-  useEffect(() => {
-    console.log("[v0] Form validation check:")
-    console.log("[v0]   Name:", customer.name ? "✓" : "✗")
-    console.log("[v0]   Phone:", customer.phone ? "✓" : "✗")
-    console.log("[v0]   Street:", deliveryAddress.street ? "✓" : "✗")
-    console.log("[v0]   City:", deliveryAddress.city ? "✓" : "✗")
-    console.log("[v0]   Zip:", deliveryAddress.zipCode ? "✓" : "✗")
-    console.log("[v0]   Cart items:", cart.length)
-    console.log("[v0]   Form valid:", isFormValid)
-  }, [customer, deliveryAddress, cart.length, isFormValid])
-
-  if (!mounted || (cart.length === 0 && !showConfirmation)) {
+  if (!mounted || !cartLoaded || (cart.length === 0 && !showConfirmation)) {
     return null
   }
 
@@ -238,6 +216,7 @@ export default function CheckoutPage() {
 
       <OrderConfirmationModal
         order={completedOrder}
+        whatsappUrl={whatsappUrl}
         isOpen={showConfirmation}
         onClose={() => {
           setShowConfirmation(false)
@@ -308,7 +287,7 @@ export default function CheckoutPage() {
                     <input
                       id="street"
                       type="text"
-                      required
+                      required={deliveryOption !== 'pickup'}
                       value={deliveryAddress.street}
                       onChange={(e) => setDeliveryAddress({ ...deliveryAddress, street: e.target.value })}
                       className="w-full px-4 py-3 border border-[#e5e7e8] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#014325] focus:border-transparent"
@@ -323,7 +302,7 @@ export default function CheckoutPage() {
                     <input
                       id="city"
                       type="text"
-                      required
+                      required={deliveryOption !== 'pickup'}
                       value={deliveryAddress.city}
                       onChange={(e) => setDeliveryAddress({ ...deliveryAddress, city: e.target.value })}
                       className="w-full px-4 py-3 border border-[#e5e7e8] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#014325] focus:border-transparent"
@@ -333,12 +312,11 @@ export default function CheckoutPage() {
 
                   <div>
                     <label htmlFor="zipCode" className="block text-sm font-medium mb-2">
-                      ZIP/Postal Code <span className="text-[#dc2626]">*</span>
+                      ZIP/Postal Code (optional)
                     </label>
                     <input
                       id="zipCode"
                       type="text"
-                      required
                       value={deliveryAddress.zipCode}
                       onChange={(e) => setDeliveryAddress({ ...deliveryAddress, zipCode: e.target.value })}
                       className="w-full px-4 py-3 border border-[#e5e7e8] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#014325] focus:border-transparent"
@@ -378,24 +356,9 @@ export default function CheckoutPage() {
                     />
                     <div className="flex-1">
                       <p className="font-bold">Standard Delivery</p>
-                      <p className="text-sm text-[#5c6466]">Depending on the location</p>
+                      <p className="text-sm text-[#5c6466]">We&apos;ll confirm timing when we review your order.</p>
                     </div>
-                    <span className="font-bold text-[#014325]">Le 25</span> {/* Updated to show Le 25 directly */}
-                  </label>
-
-                  <label className="flex items-center gap-4 p-4 border-2 border-[#e5e7e8] rounded-lg cursor-pointer hover:border-[#014325] transition-colors has-[:checked]:border-[#014325] has-[:checked]:bg-[#f0fdf4]">
-                    <input
-                      type="radio"
-                      name="delivery"
-                      value="express"
-                      checked={deliveryOption === "express"}
-                      onChange={() => handleDeliveryOptionChange("express")}
-                      className="w-5 h-5 text-[#014325] focus:ring-2 focus:ring-[#014325]"
-                    />
-                    <div className="flex-1">
-                      <p className="font-bold">Express Delivery</p>
-                      <p className="text-sm text-[#5c6466]">Depending on the location</p>
-                    </div>
+                    <span className="font-bold text-[#014325]">{formatPrice(deliveryFeeAmount)}</span>
                   </label>
 
                   <label className="flex items-center gap-4 p-4 border-2 border-[#e5e7e8] rounded-lg cursor-pointer hover:border-[#014325] transition-colors has-[:checked]:border-[#014325] has-[:checked]:bg-[#f0fdf4]">
@@ -409,7 +372,7 @@ export default function CheckoutPage() {
                     />
                     <div className="flex-1">
                       <p className="font-bold">Pickup</p>
-                      <p className="text-sm text-[#5c6466]">Ready in 30 minutes</p>
+                      <p className="text-sm text-[#5c6466]">We&apos;ll confirm when your order is ready.</p>
                     </div>
                     <span className="font-bold text-[#10b981]">Free</span>
                   </label>
@@ -455,21 +418,6 @@ export default function CheckoutPage() {
                     <input
                       type="radio"
                       name="payment"
-                      value="vault"
-                      checked={paymentMethod === "vault"}
-                      onChange={() => handlePaymentMethodChange("vault")}
-                      className="w-5 h-5 text-[#014325] focus:ring-2 focus:ring-[#014325]"
-                    />
-                    <div className="flex-1">
-                      <p className="font-bold">Vault</p>
-                      <p className="text-sm text-[#5c6466]">Secure card payment</p>
-                    </div>
-                  </label>
-
-                  <label className="flex items-center gap-4 p-4 border-2 border-[#e5e7e8] rounded-lg cursor-pointer hover:border-[#014325] transition-colors has-[:checked]:border-[#014325] has-[:checked]:bg-[#f0fdf4]">
-                    <input
-                      type="radio"
-                      name="payment"
                       value="afrimoney"
                       checked={paymentMethod === "afrimoney"}
                       onChange={() => handlePaymentMethodChange("afrimoney")}
@@ -477,132 +425,14 @@ export default function CheckoutPage() {
                     />
                     <div className="flex-1">
                       <p className="font-bold">Afrimoney</p>
-                      <p className="text-sm text-[#5c6466]">West African payment</p>
+                      <p className="text-sm text-[#5c6466]">Ask our team for payment instructions after ordering.</p>
                     </div>
                   </label>
                 </div>
 
-                {paymentMethod === "orange-money" && (
-                  <div className="mt-6 space-y-4">
-                    <div className="p-4 bg-[#ff8c00]/10 border border-[#fd4d00] rounded-lg">
-                      <h3 className="font-bold text-[#0f1419] mb-3">Orange Money Payment Instructions</h3>
-
-                      <div className="space-y-3 mb-4">
-                        <p className="text-sm text-[#0f1419]">
-                          <strong>Step 1:</strong> Click the button below to dial the payment code directly. The amount
-                          (Le {total}) is already included.
-                        </p>
-                        <a
-                          href={`tel:*144*4*1*216542*${total}%23`}
-                          className="flex items-center justify-center gap-2 w-full bg-[#ff8c00] text-white py-3 rounded-lg font-bold hover:bg-[#ff8c00]/90 transition-colors"
-                        >
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"
-                            />
-                          </svg>
-                          Dial *144*4*1*216542*{total}#
-                        </a>
-                        <p className="text-sm text-[#0f1419]">
-                          <strong>Step 2:</strong> Enter your PIN to confirm the payment of{" "}
-                          <strong className="text-[#ff8c00]">Le {total}</strong>.
-                        </p>
-                        <p className="text-sm text-[#0f1419]">
-                          <strong>Step 3:</strong> Complete payment and fill in transaction details below
-                        </p>
-                      </div>
-
-                      <div className="p-3 bg-[#fffbf5] border border-[#fd4d00] rounded-lg text-sm">
-                        <p className="font-bold text-[#dc2626] mb-1">Important:</p>
-                        <p className="text-[#0f1419] mb-2">
-                          Please complete the payment within 15 minutes. Your order will be automatically cancelled if
-                          payment is not received within this time.
-                        </p>
-                        <p className="text-[#0f1419]">
-                          After completing the payment, you will receive a confirmation SMS. Your order will be
-                          processed immediately upon payment confirmation.
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="p-4 bg-white border-2 border-[#fd4d00] rounded-lg">
-                      <h4 className="font-bold text-[#0f1419] mb-3">
-                        Transaction Details <span className="text-[#dc2626]">*</span>
-                      </h4>
-
-                      <div className="space-y-3">
-                        <div>
-                          <label htmlFor="transactionId" className="block text-sm font-medium mb-2">
-                            Transaction ID <span className="text-[#dc2626]">*</span>
-                          </label>
-                          <input
-                            id="transactionId"
-                            type="text"
-                            required
-                            value={orangeMoneyTransaction.transactionId}
-                            onChange={(e) =>
-                              setOrangeMoneyTransaction({ ...orangeMoneyTransaction, transactionId: e.target.value })
-                            }
-                            className="w-full px-4 py-3 border border-[#e5e7e8] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#ff8c00] focus:border-transparent"
-                            placeholder="e.g., MP123456789"
-                          />
-                          <p className="text-xs text-[#5c6466] mt-1">
-                            Enter the transaction ID from your Orange Money confirmation SMS
-                          </p>
-                        </div>
-
-                        <div>
-                          <label htmlFor="orangeMoneyPhone" className="block text-sm font-medium mb-2">
-                            Orange Money Phone Number (Optional)
-                          </label>
-                          <input
-                            id="orangeMoneyPhone"
-                            type="tel"
-                            value={orangeMoneyTransaction.phoneNumber}
-                            onChange={(e) =>
-                              setOrangeMoneyTransaction({ ...orangeMoneyTransaction, phoneNumber: e.target.value })
-                            }
-                            className="w-full px-4 py-3 border border-[#e5e7e8] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#ff8c00] focus:border-transparent"
-                            placeholder="+232 XX XXX XXX"
-                          />
-                          <p className="text-xs text-[#5c6466] mt-1">The phone number used for the payment</p>
-                        </div>
-
-                        <div>
-                          <label htmlFor="orangeMoneyName" className="block text-sm font-medium mb-2">
-                            Account Holder Name (Optional)
-                          </label>
-                          <input
-                            id="orangeMoneyName"
-                            type="text"
-                            value={orangeMoneyTransaction.accountName}
-                            onChange={(e) =>
-                              setOrangeMoneyTransaction({ ...orangeMoneyTransaction, accountName: e.target.value })
-                            }
-                            className="w-full px-4 py-3 border border-[#e5e7e8] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#ff8c00] focus:border-transparent"
-                            placeholder="Name on Orange Money account"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {paymentMethod !== "cod" && paymentMethod !== "orange-money" && (
-                  <div className="mt-6 p-4 bg-[#fffbf5] border border-[#fd4d00] rounded-lg">
-                    <p className="text-sm text-[#0f1419] mb-2">
-                      <strong>Note:</strong> After placing your order, please send your payment transaction screenshot
-                      via WhatsApp.
-                    </p>
-                    <p className="text-sm text-[#0f1419]">
-                      For customized cakes, contact us on WhatsApp at{" "}
-                      <a href="https://wa.me/232033680260" className="text-[#014325] font-bold hover:underline">
-                        033680260
-                      </a>
-                    </p>
+                {paymentMethod !== "cod" && (
+                  <div className="mt-6 rounded-lg border border-[#fd4d00] bg-[#fffbf5] p-4 text-sm text-[#0f1419]">
+                    Select your preferred mobile money method here. Our team will confirm the payment details after reviewing your order. Do not send payment until you have confirmed the recipient with the team.
                   </div>
                 )}
               </section>
@@ -655,11 +485,11 @@ export default function CheckoutPage() {
                 <button
                   type="submit"
                   disabled={!isFormValid || isProcessing}
-                  onClick={() => console.log("[v0] Confirm Order button clicked!")}
                   className="w-full bg-[#014325] text-white py-4 rounded-xl font-bold text-lg hover:bg-[#014325]/90 disabled:bg-[#f2f3f4] disabled:text-[#5c6466] disabled:cursor-not-allowed transition-colors"
                 >
-                  {isProcessing ? "Processing..." : `Confirm Order - ${formatPrice(total)}`}
+                  {isProcessing ? "Placing order..." : `Place Order - ${formatPrice(total)}`}
                 </button>
+                {checkoutError && <p role="alert" className="mt-3 rounded-lg bg-red-50 p-3 text-sm text-red-700">{checkoutError}</p>}
 
                 <div className="mt-4 p-3 bg-[#014325]/5 border border-[#014325] rounded-lg">
                   <p className="text-sm text-[#0f1419] text-center">
@@ -674,7 +504,7 @@ export default function CheckoutPage() {
                 </div>
 
                 <p className="text-xs text-center mt-2 text-[#5c6466]">
-                  {!isFormValid && "Please fill all required fields"}
+                  {!settingsReady ? 'Checkout is temporarily unavailable.' : !isFormValid ? 'Please fill all required fields.' : ''}
                 </p>
               </div>
             </div>

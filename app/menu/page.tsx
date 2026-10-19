@@ -21,10 +21,14 @@ export default function MenuPage() {
   const [categories, setCategories] = useState<Category[]>([])
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
+  const [retryCount, setRetryCount] = useState(0)
 
   // Load products and categories from Supabase
   useEffect(() => {
     async function loadData() {
+      setLoading(true)
+      setLoadError('')
       try {
         const [productsResult, categoriesResult] = await Promise.all([
           getProducts(),
@@ -34,20 +38,20 @@ export default function MenuPage() {
         if (productsResult.success) {
           setProducts(productsResult.data)
           setFilteredProducts(productsResult.data)
-        }
+        } else throw new Error('The menu could not load. Please try again.')
 
         if (categoriesResult.success) {
           setCategories(categoriesResult.data)
         }
       } catch (error) {
-        console.error("Error loading data:", error)
+        setLoadError(error instanceof Error ? error.message : 'The menu could not load. Please try again.')
       } finally {
         setLoading(false)
       }
     }
 
     loadData()
-  }, [])
+  }, [retryCount])
 
   // Filter products when category changes
   useEffect(() => {
@@ -85,6 +89,11 @@ export default function MenuPage() {
               </div>
             ))}
           </div>
+        ) : loadError ? (
+          <div role="alert" className="rounded-xl bg-white p-8 text-center">
+            <p className="text-red-700">{loadError}</p>
+            <button type="button" onClick={() => setRetryCount(count => count + 1)} className="mt-4 rounded-lg bg-[#014325] px-5 py-2 text-white">Try again</button>
+          </div>
         ) : filteredProducts.length > 0 ? (
           <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
             {filteredProducts.map((product) => (
@@ -93,7 +102,7 @@ export default function MenuPage() {
           </div>
         ) : (
           <div className="text-center py-12">
-            <p className="text-[#5c6466] text-lg">No products in this category</p>
+            <p className="text-[#5c6466] text-lg">{products.length ? 'No products in this category.' : 'The menu is empty right now. Please check back soon.'}</p>
           </div>
         )}
       </main>

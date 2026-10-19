@@ -10,7 +10,6 @@ import Link from "next/link"
 export default function WishlistPage() {
   const { wishlist, isLoaded } = useWishlist()
 
-  console.log("[v0] Wishlist page loaded, items:", wishlist.length)
 
   if (!isLoaded) {
     return (

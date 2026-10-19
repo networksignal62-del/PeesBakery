@@ -1,46 +1,62 @@
 "use server"
 
 import { createClient } from "@/lib/supabase/server"
-import { revalidatePath } from "next/cache"
 
-export interface ProductPayload {
+function databaseConfigured() {
+  return Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
+}
+
+interface DbOption {
+  id: number
+  name: string
+  price: number | string
+  description?: string | null
+}
+
+interface DbProduct {
+  id: number
   name: string
   category: string
-  price: number
-  image?: string
-  description?: string
-  longDescription?: string
-  featured?: boolean
-  rating?: number
-  reviewCount?: number
-  isCustomizable?: boolean
-  isActive?: boolean
+  price: number | string
+  image?: string | null
+  description?: string | null
+  long_description?: string | null
+  featured?: boolean | null
+  rating?: number | string | null
+  review_count?: number | null
+  is_customizable?: boolean | null
+  product_addons?: DbOption[] | null
+  product_variants?: DbOption[] | null
 }
 
 // Transform database product to frontend Product type
-function transformProduct(dbProduct: any) {
+function transformProduct(dbProduct: DbProduct) {
+  const images = typeof dbProduct.image === 'string'
+    ? dbProduct.image.split(',').map((image: string) => image.trim()).filter(Boolean)
+    : []
   return {
     id: dbProduct.id,
     name: dbProduct.name,
     category: dbProduct.category,
     price: Number(dbProduct.price),
-    image: dbProduct.image || "/placeholder.svg",
+    image: images[0] || "/placeholder.svg",
+    images,
     description: dbProduct.description || "",
     longDescription: dbProduct.long_description || dbProduct.description || "",
     featured: dbProduct.featured ?? false,
     rating: dbProduct.rating ? Number(dbProduct.rating) : undefined,
     reviewCount: dbProduct.review_count ?? 0,
     isCustomizable: dbProduct.is_customizable ?? false,
-    addOns: (dbProduct.product_addons || []).map((addon: any) => ({
+    addOns: (dbProduct.product_addons || []).map((addon: DbOption) => ({
       id: addon.id,
       name: addon.name,
       price: Number(addon.price),
     })),
-    variants: (dbProduct.product_variants || []).map((variant: any) => ({
+    variants: (dbProduct.product_variants || []).map((variant: DbOption) => ({
       id: variant.id,
       name: variant.name,
       price: Number(variant.price),
-      description: variant.description,
+      description: variant.description || undefined,
     })),
   }
 }
@@ -49,6 +65,7 @@ function transformProduct(dbProduct: any) {
 
 // Get all active products for customers
 export async function getProducts() {
+  if (!databaseConfigured()) return { success: false, error: 'The menu is temporarily unavailable.', data: [] }
   const supabase = await createClient()
 
   const { data, error } = await supabase
@@ -59,7 +76,7 @@ export async function getProducts() {
 
   if (error) {
     console.error("Error fetching products:", error)
-    return { success: false, error: error.message, data: [] }
+    return { success: false, error: 'The menu could not be loaded. Please try again.', data: [] }
   }
 
   const transformedProducts = (data ?? []).map(transformProduct)
@@ -68,6 +85,7 @@ export async function getProducts() {
 
 // Get featured products only
 export async function getFeaturedProducts() {
+  if (!databaseConfigured()) return { success: false, error: 'The menu is temporarily unavailable.', data: [] }
   const supabase = await createClient()
 
   const { data, error } = await supabase
@@ -79,7 +97,7 @@ export async function getFeaturedProducts() {
 
   if (error) {
     console.error("Error fetching featured products:", error)
-    return { success: false, error: error.message, data: [] }
+    return { success: false, error: 'Featured products could not be loaded. Please try again.', data: [] }
   }
 
   const transformedProducts = (data ?? []).map(transformProduct)
@@ -88,6 +106,7 @@ export async function getFeaturedProducts() {
 
 // Get single product by ID
 export async function getProductById(id: number) {
+  if (!databaseConfigured()) return { success: false, error: 'The menu is temporarily unavailable.', data: null }
   const supabase = await createClient()
 
   const { data, error } = await supabase
@@ -99,7 +118,7 @@ export async function getProductById(id: number) {
 
   if (error) {
     console.error("Error fetching product:", error)
-    return { success: false, error: error.message, data: null }
+    return { success: false, error: 'This product is unavailable. Please try again.', data: null }
   }
 
   return { success: true, data: transformProduct(data) }
@@ -107,6 +126,7 @@ export async function getProductById(id: number) {
 
 // Get products by category
 export async function getProductsByCategory(category: string) {
+  if (!databaseConfigured()) return { success: false, error: 'The menu is temporarily unavailable.', data: [] }
   const supabase = await createClient()
 
   let query = supabase
@@ -123,7 +143,7 @@ export async function getProductsByCategory(category: string) {
 
   if (error) {
     console.error("Error fetching products by category:", error)
-    return { success: false, error: error.message, data: [] }
+    return { success: false, error: 'The menu could not be loaded. Please try again.', data: [] }
   }
 
   const transformedProducts = (data ?? []).map(transformProduct)
@@ -132,6 +152,7 @@ export async function getProductsByCategory(category: string) {
 
 // Get all categories from database
 export async function getCategories() {
+  if (!databaseConfigured()) return { success: false, error: 'The menu is temporarily unavailable.', data: [] }
   const supabase = await createClient()
 
   const { data, error } = await supabase
@@ -142,104 +163,16 @@ export async function getCategories() {
 
   if (error) {
     console.error("Error fetching categories:", error)
-    return { success: false, error: error.message, data: [] }
+    return { success: false, error: 'Categories could not be loaded. Please try again.', data: [] }
   }
 
   return { success: true, data: data ?? [] }
 }
 
-// ==================== ADMIN FUNCTIONS ====================
-
-export async function getAdminProducts() {
-  const supabase = await createClient()
-
-  const { data, error } = await supabase
-    .from("products")
-    .select(`*, product_variants(*), product_addons(*)`)
-    .order("created_at", { ascending: false })
-
-  if (error) return { success: false, error: error.message, data: [] }
-  return { success: true, data: data ?? [] }
-}
-
-export async function createProduct(payload: ProductPayload) {
-  const supabase = await createClient()
-
-  const { data, error } = await supabase
-    .from("products")
-    .insert({
-      name: payload.name,
-      category: payload.category,
-      price: payload.price,
-      image: payload.image ?? null,
-      description: payload.description ?? null,
-      long_description: payload.longDescription ?? null,
-      featured: payload.featured ?? false,
-      rating: payload.rating ?? null,
-      review_count: payload.reviewCount ?? 0,
-      is_customizable: payload.isCustomizable ?? false,
-      is_active: payload.isActive ?? true,
-    })
-    .select()
-    .single()
-
-  if (error) return { success: false, error: error.message }
-  revalidatePath("/menu")
-  revalidatePath("/admin/products")
-  return { success: true, data }
-}
-
-export async function updateProduct(id: number, payload: Partial<ProductPayload>) {
-  const supabase = await createClient()
-
-  const { error } = await supabase
-    .from("products")
-    .update({
-      ...(payload.name !== undefined && { name: payload.name }),
-      ...(payload.category !== undefined && { category: payload.category }),
-      ...(payload.price !== undefined && { price: payload.price }),
-      ...(payload.image !== undefined && { image: payload.image }),
-      ...(payload.description !== undefined && { description: payload.description }),
-      ...(payload.longDescription !== undefined && { long_description: payload.longDescription }),
-      ...(payload.featured !== undefined && { featured: payload.featured }),
-      ...(payload.isActive !== undefined && { is_active: payload.isActive }),
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", id)
-
-  if (error) return { success: false, error: error.message }
-  revalidatePath("/menu")
-  revalidatePath("/admin/products")
-  return { success: true }
-}
-
-export async function deleteProduct(id: number) {
-  const supabase = await createClient()
-
-  const { error } = await supabase.from("products").delete().eq("id", id)
-
-  if (error) return { success: false, error: error.message }
-  revalidatePath("/menu")
-  revalidatePath("/admin/products")
-  return { success: true }
-}
-
-export async function toggleProductActive(id: number, isActive: boolean) {
-  return updateProduct(id, { isActive })
-}
-
 export async function getSiteSettings() {
+  if (!databaseConfigured()) return { success: false, error: 'Settings are temporarily unavailable.', data: [] }
   const supabase = await createClient()
   const { data, error } = await supabase.from("site_settings").select("*")
-  if (error) return { success: false, error: error.message, data: [] }
+  if (error) return { success: false, error: 'Settings could not be loaded. Please try again.', data: [] }
   return { success: true, data: data ?? [] }
-}
-
-export async function updateSiteSetting(key: string, value: string) {
-  const supabase = await createClient()
-  const { error } = await supabase
-    .from("site_settings")
-    .upsert({ key, value, updated_at: new Date().toISOString() }, { onConflict: "key" })
-  if (error) return { success: false, error: error.message }
-  return { success: true }
 }

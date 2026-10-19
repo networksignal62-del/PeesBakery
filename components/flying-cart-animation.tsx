@@ -14,7 +14,6 @@ export function FlyingCartAnimation({ trigger, startPosition, onComplete }: Flyi
   useEffect(() => {
     if (trigger) {
       setIsAnimating(true)
-      console.log("[v0] Flying cart animation triggered")
 
       setTimeout(() => {
         setIsAnimating(false)

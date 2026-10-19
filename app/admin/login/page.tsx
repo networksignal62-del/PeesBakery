@@ -1,127 +1,112 @@
-"use client"
+'use client'
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
-import Image from "next/image"
-import { createClient } from "@/lib/supabase/client"
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
+import { ChefHat, Eye, EyeOff, Loader2 } from 'lucide-react'
+import toast from 'react-hot-toast'
+import styles from './page.module.css'
+import { defaultAdminPath, isStaffRole } from '@/lib/admin-access'
 
 export default function AdminLoginPage() {
-  const router = useRouter()
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [error, setError] = useState("")
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
+  const router = useRouter()
+  const supabase = createClient()
 
-  const handleLogin = async (e: React.FormEvent) => {
+  async function handleLogin(e: React.FormEvent) {
     e.preventDefault()
-    setError("")
     setLoading(true)
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+      if (error) throw error
 
-    const supabase = createClient()
+      const { data: adminProfile } = await supabase
+        .from('admin_profiles')
+        .select('*')
+        .eq('id', data.user.id)
+        .eq('is_active', true)
+        .single()
 
-    const { data, error: signInError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    })
+      if (!adminProfile || !isStaffRole(adminProfile.role)) {
+        await supabase.auth.signOut()
+        toast.error('Access denied. Admin account required.')
+        setLoading(false)
+        return
+      }
 
-    if (signInError || !data.user) {
-      setError("Invalid email or password.")
+      toast.success(`Welcome back, ${adminProfile.full_name || 'Admin'}!`)
+      router.push(defaultAdminPath(adminProfile.role))
+      router.refresh()
+    } catch {
+      toast.error('Sign in failed. Check your details and try again.')
+    } finally {
       setLoading(false)
-      return
     }
-
-    // Check if user is an admin
-    const { data: profile, error: profileError } = await supabase
-      .from("admin_profiles")
-      .select("*")
-      .eq("id", data.user.id)
-      .eq("is_active", true)
-      .single()
-
-    if (profileError || !profile) {
-      await supabase.auth.signOut()
-      setError("You do not have admin access.")
-      setLoading(false)
-      return
-    }
-
-    router.push("/admin")
-    router.refresh()
   }
 
   return (
-    <div className="min-h-screen bg-[#fffbf5] flex items-center justify-center px-4">
-      <div className="w-full max-w-md">
-        {/* Logo */}
-        <div className="flex justify-center mb-8">
-          <div className="relative w-20 h-20">
-            <Image
-              src="/pees-bakery-logo.png"
-              alt="Pee's Bakery Logo"
-              fill
-              className="object-contain"
-            />
+    <div className={styles.page}>
+      <div className={styles.container}>
+        <div className={styles.logoArea}>
+          <div className={styles.logoIcon}>
+            <ChefHat size={32} color="white" />
           </div>
+          <h1 className={styles.logoText}>Pee&apos;s Bakery</h1>
+          <p className={styles.logoSub}>Admin Panel</p>
         </div>
 
-        <div className="bg-white border border-[#e5e7e8] rounded-2xl shadow-sm p-8">
-          <div className="text-center mb-8">
-            <h1 className="text-2xl font-bold text-[#0f1419]">Admin Portal</h1>
-            <p className="text-[#5c6466] text-sm mt-1">
-              Sign in to manage Pee&apos;s Bakery &amp; Restaurant
-            </p>
-          </div>
+        <div className={styles.card}>
+          <h2 className={styles.title}>Sign In</h2>
+          <p className={styles.subtitle}>Sign in to manage your bakery</p>
 
-          <form onSubmit={handleLogin} className="space-y-5">
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-[#0f1419] mb-1.5">
-                Email Address
-              </label>
+          <form onSubmit={handleLogin} className={styles.form}>
+            <div className={styles.field}>
+              <label htmlFor="email">Email Address</label>
               <input
                 id="email"
                 type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-3 border border-[#e5e7e8] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#014325] focus:border-transparent"
                 placeholder="admin@peesbakery.com"
-              />
-            </div>
-
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-[#0f1419] mb-1.5">
-                Password
-              </label>
-              <input
-                id="password"
-                type="password"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
                 required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-3 border border-[#e5e7e8] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#014325] focus:border-transparent"
-                placeholder="••••••••"
+                autoComplete="email"
               />
             </div>
 
-            {error && (
-              <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700">
-                {error}
+            <div className={styles.field}>
+              <label htmlFor="password">Password</label>
+              <div className={styles.passwordWrapper}>
+                <input
+                  id="password"
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="Your password"
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  required
+                  autoComplete="current-password"
+                />
+                <button
+                  type="button"
+                  className={styles.eyeBtn}
+                  onClick={() => setShowPassword(s => !s)}
+                >
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
               </div>
-            )}
+            </div>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-[#014325] text-white py-3 rounded-lg font-semibold text-sm hover:bg-[#012d19] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-            >
-              {loading ? "Signing in..." : "Sign In"}
+            <button type="submit" className={styles.submitBtn} disabled={loading}>
+              {loading ? (
+                <><Loader2 size={18} className="animate-spin" /> Signing in...</>
+              ) : 'Sign In to Dashboard'}
             </button>
           </form>
-
-          <p className="text-center text-xs text-[#5c6466] mt-6">
-            This portal is for authorized staff only.
-          </p>
         </div>
+
+        <p className={styles.footer}>Pee&apos;s Bakery & Restaurant — Freetown, Sierra Leone</p>
       </div>
     </div>
   )
