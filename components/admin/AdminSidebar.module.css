@@ -1,183 +1,149 @@
 .sidebar {
-  width: 240px;
-  height: 100vh;
-  background: var(--primary);
   position: fixed;
-  left: 0;
-  top: 0;
-  z-index: 50;
+  inset: 0 auto 0 0;
+  z-index: 60;
   display: flex;
   flex-direction: column;
+  width: 264px;
+  height: 100vh;
+  height: 100dvh;
+  background: #fff;
+  border-right: 1px solid #dfe7df;
+  box-shadow: 8px 0 30px rgba(20, 52, 35, .025);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: .8rem;
+  min-height: 88px;
+  padding: 1rem 1.2rem;
+  border-bottom: 1px solid #edf1ed;
+  color: #172b21;
+  text-decoration: none;
+}
+.logoFrame {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 46px;
+  height: 46px;
   overflow: hidden;
+  border-radius: 13px;
+  background: #e96b2b;
+  color: #fff;
 }
+.brandText { display: grid; gap: .16rem; min-width: 0; }
+.brandText strong { font-size: .92rem; letter-spacing: -.02em; white-space: nowrap; }
+.brandText small { color: #718078; font-size: .72rem; font-weight: 600; }
 
-.logo {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 1.5rem 1.25rem;
-  border-bottom: 1px solid rgba(255,255,255,0.1);
-}
-
-.logoIcon {
-  width: 40px;
-  height: 40px;
-  background: var(--secondary);
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.logoName {
-  font-size: 0.95rem;
-  font-weight: 800;
-  color: white;
-  line-height: 1.2;
-}
-
-.logoSub {
-  font-size: 0.65rem;
-  color: rgba(255,255,255,0.6);
-}
-
-.nav {
+.navigation {
   flex: 1;
-  padding: 1rem 0.75rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 1.15rem .8rem 1.5rem;
 }
-
+.navGroup + .navGroup { margin-top: 1.4rem; }
+.groupLabel {
+  padding: 0 .75rem;
+  margin-bottom: .5rem;
+  color: #8a968e;
+  font-size: .66rem;
+  font-weight: 800;
+  letter-spacing: .13em;
+  text-transform: uppercase;
+}
+.nav { display: grid; gap: .2rem; }
 .navItem {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.75rem 1rem;
+  gap: .82rem;
+  min-height: 43px;
+  padding: .65rem .75rem;
   border-radius: 10px;
-  color: rgba(255,255,255,0.7);
+  color: #55675a;
+  font-size: .84rem;
+  font-weight: 650;
   text-decoration: none;
-  font-size: 0.875rem;
-  font-weight: 500;
-  transition: all 0.2s;
-  position: relative;
+  transition: background .18s, color .18s;
 }
-
-.navItem:hover {
-  background: rgba(255,255,255,0.1);
-  color: white;
-}
-
-.navActive {
-  background: rgba(255,255,255,0.15) !important;
-  color: white !important;
-  font-weight: 600;
-}
-
-.navActive::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 3px;
-  height: 60%;
-  background: var(--secondary);
-  border-radius: 0 2px 2px 0;
-}
-
+.navItem svg { flex: none; color: #718b78; }
+.navItem:hover { background: #f2f6f1; color: #145338; }
+.navItem:hover svg { color: #145338; }
+.navActive { background: #e8f2e9; color: #145338; font-weight: 800; }
+.navActive svg { color: #145338; }
 .navBadge {
+  display: grid;
+  place-items: center;
+  min-width: 22px;
+  height: 22px;
   margin-left: auto;
-  background: var(--secondary);
-  color: white;
-  font-size: 0.7rem;
-  font-weight: 700;
-  min-width: 20px;
-  height: 20px;
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 0.3rem;
-  animation: pulse 2s ease infinite;
-}
-
-@keyframes pulse {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.1); }
+  padding: 0 .3rem;
+  border-radius: 7px;
+  background: #fff0de;
+  color: #a44c0a;
+  font-size: .69rem;
+  font-weight: 800;
 }
 
 .footer {
-  padding: 1rem 0.75rem;
-  border-top: 1px solid rgba(255,255,255,0.1);
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
+  display: grid;
+  gap: .55rem;
+  padding: 1rem .8rem 1.2rem;
+  border-top: 1px solid #edf1ed;
 }
-
-.adminCard {
+.accountCard {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.75rem;
-  background: rgba(255,255,255,0.08);
-  border-radius: 10px;
+  gap: .65rem;
+  padding: .62rem;
+  border: 1px solid #e4ece4;
+  border-radius: 11px;
+  color: #172b21;
+  text-decoration: none;
+  transition: background .18s;
 }
-
+.accountCard:hover, .accountActive { background: #f3f7f2; }
+.accountCard > svg { color: #8b9b8e; flex: none; }
 .adminAvatar {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  background: var(--secondary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 700;
-  font-size: 0.9rem;
-  color: white;
-  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 35px;
+  height: 35px;
+  border-radius: 10px;
+  background: #dcebdc;
+  color: #145338;
+  font-size: .83rem;
+  font-weight: 800;
 }
-
-.adminInfo {
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.adminName {
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: white;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.adminRole {
-  font-size: 0.68rem;
-  color: rgba(255,255,255,0.6);
-  text-transform: capitalize;
-}
-
+.adminInfo { display: grid; gap: .1rem; min-width: 0; flex: 1; }
+.adminInfo strong { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: .78rem; }
+.adminInfo small { color: #7c8980; font-size: .7rem; text-transform: capitalize; }
 .logoutBtn {
   display: flex;
   align-items: center;
-  gap: 0.625rem;
-  padding: 0.6rem 0.875rem;
-  background: rgba(239, 68, 68, 0.15);
-  color: #fca5a5;
-  border: 1px solid rgba(239, 68, 68, 0.2);
-  border-radius: 8px;
-  font-size: 0.8rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
-  font-family: inherit;
+  gap: .7rem;
+  min-height: 40px;
   width: 100%;
+  padding: .55rem .75rem;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: #65736b;
+  font: inherit;
+  font-size: .8rem;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+.logoutBtn:hover { background: #fff0ed; color: #a23b29; }
+.logoutBtn:disabled { opacity: .55; cursor: wait; }
+
+@media (max-width: 900px) {
+  .sidebar { width: min(264px, 84vw); box-shadow: 12px 0 40px rgba(0, 0, 0, .1); }
 }
 
-.logoutBtn:hover {
-  background: rgba(239, 68, 68, 0.25);
-  color: #fca5a5;
+@media (prefers-reduced-motion: reduce) {
+  .navItem, .accountCard { transition: none; }
 }

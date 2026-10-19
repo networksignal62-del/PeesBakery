@@ -1,9 +1,9 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Order } from '@/lib/admin-types'
-import { ShoppingBag, DollarSign, Clock, Package, Bell, BookOpen, LockKeyhole } from 'lucide-react'
+import { ArrowRight, BookOpen, Clock, LockKeyhole, Package, ShoppingBag, Wallet } from 'lucide-react'
 import Link from 'next/link'
 import styles from './page.module.css'
 import toast from 'react-hot-toast'
@@ -20,14 +20,9 @@ export default function AdminDashboard() {
   const [recentOrders, setRecentOrders] = useState<Order[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
 
-  useEffect(() => {
-    void fetchData()
-    return setupRealtime()
-  }, [])
-
-  async function fetchData() {
+  const fetchData = useCallback(async () => {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
     const todayStr = today.toISOString()
@@ -54,9 +49,11 @@ export default function AdminDashboard() {
     setRecentOrders(recentRes.data || [])
     setError('')
     setLoading(false)
-  }
+  }, [supabase])
 
-  function setupRealtime() {
+  useEffect(() => {
+    let active = true
+    queueMicrotask(() => { if (active) void fetchData() })
     const channel = supabase
       .channel('admin-dashboard')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders' }, (payload: { new: unknown }) => {
@@ -71,8 +68,8 @@ export default function AdminDashboard() {
         void fetchData()
       })
       .subscribe()
-    return () => { void supabase.removeChannel(channel) }
-  }
+    return () => { active = false; void supabase.removeChannel(channel) }
+  }, [fetchData, supabase])
 
   const STATUS_COLORS: Record<string, string> = {
     pending: '#f59e0b',
@@ -86,15 +83,16 @@ export default function AdminDashboard() {
 
   return (
     <div className={styles.page}>
-      <div className={styles.header}>
+      <header className={styles.header}>
         <div>
+          <span className={styles.eyebrow}>Overview</span>
           <h1 className={styles.title}>Dashboard</h1>
-          <p className={styles.subtitle}>Welcome back! Here&apos;s what&apos;s happening today.</p>
+          <p className={styles.subtitle}>A clear view of today&apos;s orders and storefront activity.</p>
         </div>
         <Link href="/admin/orders" className={styles.viewAllBtn}>
-          View All Orders
+          Manage orders <ArrowRight size={17} aria-hidden="true" />
         </Link>
-      </div>
+      </header>
 
       {error && <div role="alert" className={styles.empty}>{error} <button type="button" onClick={() => { setLoading(true); void fetchData() }}>Try again</button></div>}
 
@@ -103,42 +101,43 @@ export default function AdminDashboard() {
         <StatCard
           icon={<ShoppingBag size={22} />}
           title="Today's Orders"
-          value={loading ? '...' : stats.todayOrders}
+          value={loading || error ? '—' : stats.todayOrders}
           color="#f97316"
           bg="#fff7ed"
         />
         <StatCard
-          icon={<DollarSign size={22} />}
-          title="Today's Revenue"
-          value={loading ? '...' : `Le ${stats.todayRevenue.toLocaleString()}`}
+          icon={<Wallet size={22} />}
+          title="Today's revenue"
+          value={loading || error ? '—' : `Le ${stats.todayRevenue.toLocaleString()}`}
           color="#166534"
           bg="#f0fdf4"
         />
         <StatCard
           icon={<Clock size={22} />}
-          title="Pending Orders"
-          value={loading ? '...' : stats.pendingOrders}
+          title="Pending orders"
+          value={loading || error ? '—' : stats.pendingOrders}
           color="#f59e0b"
           bg="#fffbeb"
           alert={stats.pendingOrders > 0}
         />
         <StatCard
           icon={<Package size={22} />}
-          title="Active Products"
-          value={loading ? '...' : stats.totalProducts}
+          title="Active products"
+          value={loading || error ? '—' : stats.totalProducts}
           color="#3b82f6"
           bg="#eff6ff"
         />
       </div>
 
-      {/* Recent Orders */}
-      <div className={styles.section}>
+      <div className={styles.contentGrid}>
+      <section className={styles.section}>
         <div className={styles.sectionHeader}>
-          <h2>Recent Orders</h2>
-          <Link href="/admin/orders">View all →</Link>
+          <div><span className={styles.sectionKicker}>Latest activity</span><h2>Recent orders</h2></div>
+          <Link href="/admin/orders">View all <ArrowRight size={15} /></Link>
         </div>
         <div className={styles.ordersTable}>
           <table>
+            <caption className={styles.srOnly}>The ten most recent customer orders</caption>
             <thead>
               <tr>
                 <th>Order #</th>
@@ -161,7 +160,7 @@ export default function AdminDashboard() {
                 ))
               ) : recentOrders.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className={styles.empty}>{error ? 'Orders are unavailable.' : 'No orders yet'}</td>
+                  <td colSpan={7} className={styles.empty}>{error ? 'Orders are unavailable.' : 'New orders will appear here.'}</td>
                 </tr>
               ) : (
                 recentOrders.map(order => (
@@ -176,16 +175,16 @@ export default function AdminDashboard() {
                     <td>
                       <span
                         className={styles.statusBadge}
-                        style={{ background: STATUS_COLORS[order.status] + '20', color: STATUS_COLORS[order.status] }}
+                        style={{ background: (STATUS_COLORS[order.status] || '#627169') + '20', color: STATUS_COLORS[order.status] || '#627169' }}
                       >
                         {order.status.replace('_', ' ')}
                       </span>
                     </td>
                     <td className={styles.date}>
-                      {new Date(order.created_at).toLocaleDateString()}
+                      {new Date(order.created_at).toLocaleDateString('en-SL', { day: 'numeric', month: 'short' })}
                     </td>
                     <td>
-                      <Link href={`/admin/orders/${order.id}`} className={styles.viewBtn}>
+                      <Link href={`/admin/orders/${order.id}`} className={styles.viewBtn} aria-label={`View order ${order.id.substring(0,8)}`}>
                         View
                       </Link>
                     </td>
@@ -195,25 +194,27 @@ export default function AdminDashboard() {
             </tbody>
           </table>
         </div>
-      </div>
+      </section>
 
-      {/* Quick Actions */}
-      <div className={styles.quickActions}>
-        <h2>Quick Actions</h2>
+      <aside className={styles.quickActions}>
+        <span className={styles.sectionKicker}>Shortcuts</span>
+        <h2>Quick actions</h2>
+        <p>Get where you need to go.</p>
         <div className={styles.actionsGrid}>
-          <Link href="/admin/menu" className={styles.action}>
-            <BookOpen size={24} />
-            <span>Digital Menu</span>
-          </Link>
           <Link href="/admin/orders" className={styles.action}>
-            <Bell size={24} />
-            <span>View Orders</span>
+            <span className={styles.actionIcon}><ShoppingBag size={19} /></span>
+            <span>View orders</span><ArrowRight size={17} className={styles.actionArrow} />
+          </Link>
+          <Link href="/admin/menu" className={styles.action}>
+            <span className={styles.actionIcon}><BookOpen size={19} /></span>
+            <span>Digital menu</span><ArrowRight size={17} className={styles.actionArrow} />
           </Link>
           <Link href="/admin/account" className={styles.action}>
-            <LockKeyhole size={24} />
-            <span>My Account</span>
+            <span className={styles.actionIcon}><LockKeyhole size={19} /></span>
+            <span>My account</span><ArrowRight size={17} className={styles.actionArrow} />
           </Link>
         </div>
+      </aside>
       </div>
     </div>
   )
@@ -223,10 +224,10 @@ function StatCard({ icon, title, value, color, bg, alert }: {
   icon: React.ReactNode; title: string; value: string | number; color: string; bg: string; alert?: boolean
 }) {
   return (
-    <div className={styles.statCard} style={{ borderColor: color + '30' }}>
+    <div className={styles.statCard}>
       <div className={styles.statIcon} style={{ background: bg, color }}>
         {icon}
-        {alert && <span className={styles.alertDot} />}
+        {alert && <span className={styles.alertDot} aria-hidden="true" />}
       </div>
       <div className={styles.statBody}>
         <span className={styles.statTitle}>{title}</span>

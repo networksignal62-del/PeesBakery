@@ -1,109 +1,112 @@
 'use client'
 
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { AdminProfile } from '@/lib/admin-types'
-import { createClient } from '@/lib/supabase/client'
-import {
-  LayoutDashboard, ShoppingBag, Package, Tags, Settings, LogOut, ChefHat, BookOpen, Users, LockKeyhole
-} from 'lucide-react'
-import { canAccessAdminPath, isStaffRole } from '@/lib/admin-access'
-import { useState, useEffect } from 'react'
-import styles from './AdminSidebar.module.css'
+import { BookOpen, ChefHat, LayoutDashboard, LockKeyhole, LogOut, Package, Settings, ShoppingBag, Tags, Users } from 'lucide-react'
 import toast from 'react-hot-toast'
+import type { AdminProfile } from '@/lib/admin-types'
+import { canAccessAdminPath, isStaffRole } from '@/lib/admin-access'
+import { createClient } from '@/lib/supabase/client'
+import styles from './AdminSidebar.module.css'
 
-interface Props {
-  admin: AdminProfile
-  onClose?: () => void
-}
-
-const NAV_ITEMS = [
-  { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/admin/orders', label: 'Orders', icon: ShoppingBag },
-  { href: '/admin/products', label: 'Products', icon: Package },
-  { href: '/admin/categories', label: 'Categories', icon: Tags },
-  { href: '/admin/menu', label: 'Digital menu', icon: BookOpen },
-  { href: '/admin/staff', label: 'Staff access', icon: Users },
-  { href: '/admin/settings', label: 'Settings', icon: Settings },
-  { href: '/admin/account', label: 'My account', icon: LockKeyhole },
+const NAV_GROUPS = [
+  {
+    label: 'Overview',
+    items: [
+      { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
+      { href: '/admin/orders', label: 'Orders', icon: ShoppingBag },
+    ],
+  },
+  {
+    label: 'Manage',
+    items: [
+      { href: '/admin/products', label: 'Products', icon: Package },
+      { href: '/admin/categories', label: 'Categories', icon: Tags },
+      { href: '/admin/menu', label: 'Digital menu', icon: BookOpen },
+      { href: '/admin/staff', label: 'Staff access', icon: Users },
+      { href: '/admin/settings', label: 'Settings', icon: Settings },
+    ],
+  },
 ]
 
-export default function AdminSidebar({ admin, onClose }: Props) {
+export default function AdminSidebar({ admin, onClose }: { admin: AdminProfile; onClose?: () => void }) {
   const pathname = usePathname()
   const router = useRouter()
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
   const [pendingCount, setPendingCount] = useState(0)
+  const [signingOut, setSigningOut] = useState(false)
 
   useEffect(() => {
-    fetchPendingCount()
+    if (!isStaffRole(admin.role) || !canAccessAdminPath(admin.role, '/admin/orders')) return
+    async function refreshCount() {
+      const { count } = await supabase.from('orders').select('*', { count: 'exact', head: true }).eq('status', 'pending')
+      setPendingCount(count ?? 0)
+    }
+    void refreshCount()
     const channel = supabase
-      .channel('pending-orders')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
-        fetchPendingCount()
-      })
+      .channel('admin-pending-orders')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => { void refreshCount() })
       .subscribe()
-    return () => { supabase.removeChannel(channel) }
-  }, [])
-
-  async function fetchPendingCount() {
-    const { count } = await supabase
-      .from('orders')
-      .select('*', { count: 'exact', head: true })
-      .eq('status', 'pending')
-    setPendingCount(count || 0)
-  }
+    return () => { void supabase.removeChannel(channel) }
+  }, [admin.role, supabase])
 
   async function handleLogout() {
-    await supabase.auth.signOut()
-    toast.success('Logged out successfully')
-    router.push('/admin/login')
+    setSigningOut(true)
+    const { error } = await supabase.auth.signOut()
+    setSigningOut(false)
+    if (error) {
+      toast.error('Could not sign out. Please try again.')
+      return
+    }
+    router.replace('/admin/login')
+    router.refresh()
   }
 
   return (
-    <aside className={styles.sidebar}>
-      <div className={styles.logo}>
-        <div className={styles.logoIcon}>
-          <ChefHat size={22} color="white" />
-        </div>
-        <div>
-          <h1 className={styles.logoName}>Pee&apos;s Bakery</h1>
-          <p className={styles.logoSub}>Admin Panel</p>
-        </div>
+    <aside className={styles.sidebar} id="admin-navigation" aria-label="Admin navigation">
+      <Link href="/admin" className={styles.brand} onClick={onClose}>
+        <span className={styles.logoFrame}><ChefHat size={25} strokeWidth={1.8} aria-hidden="true" /></span>
+        <span className={styles.brandText}><strong>Pee&apos;s Bakery</strong><small>Staff workspace</small></span>
+      </Link>
+
+      <div className={styles.navigation}>
+        {NAV_GROUPS.map(group => {
+          const items = group.items.filter(item => isStaffRole(admin.role) && canAccessAdminPath(admin.role, item.href))
+          if (items.length === 0) return null
+          return <div className={styles.navGroup} key={group.label}>
+            <p className={styles.groupLabel}>{group.label}</p>
+            <nav aria-label={group.label} className={styles.nav}>
+              {items.map(({ href, label, icon: Icon }) => {
+                const active = href === '/admin' ? pathname === href : pathname.startsWith(href)
+                return <Link
+                  href={href}
+                  key={href}
+                  onClick={onClose}
+                  aria-current={active ? 'page' : undefined}
+                  className={`${styles.navItem} ${active ? styles.navActive : ''}`}
+                >
+                  <Icon size={18} strokeWidth={1.9} aria-hidden="true" />
+                  <span>{label}</span>
+                  {href === '/admin/orders' && pendingCount > 0 && <span className={styles.navBadge} aria-label={`${pendingCount} pending orders`}>{pendingCount}</span>}
+                </Link>
+              })}
+            </nav>
+          </div>
+        })}
       </div>
 
-      <nav className={styles.nav}>
-        {NAV_ITEMS.filter(item => isStaffRole(admin.role) && canAccessAdminPath(admin.role, item.href)).map(({ href, label, icon: Icon }) => {
-          const isActive = href === '/admin' ? pathname === '/admin' : pathname.startsWith(href)
-          return (
-            <Link
-              key={href}
-              href={href}
-              className={`${styles.navItem} ${isActive ? styles.navActive : ''}`}
-              onClick={() => onClose && onClose()}
-            >
-              <Icon size={18} />
-              <span>{label}</span>
-              {label === 'Orders' && pendingCount > 0 && (
-                <span className={styles.navBadge}>{pendingCount}</span>
-              )}
-            </Link>
-          )
-        })}
-      </nav>
-
       <div className={styles.footer}>
-        <div className={styles.adminCard}>
-          <div className={styles.adminAvatar}>
-            {admin.full_name?.charAt(0) || admin.email.charAt(0).toUpperCase()}
-          </div>
-          <div className={styles.adminInfo}>
-            <span className={styles.adminName}>{admin.full_name || 'Admin'}</span>
-            <span className={styles.adminRole}>{admin.role.replace('_', ' ')}</span>
-          </div>
-        </div>
-        <button className={styles.logoutBtn} onClick={handleLogout}>
-          <LogOut size={16} />
-          <span>Logout</span>
+        <Link href="/admin/account" onClick={onClose} className={`${styles.accountCard} ${pathname.startsWith('/admin/account') ? styles.accountActive : ''}`}>
+          <span className={styles.adminAvatar}>{admin.full_name?.trim().charAt(0).toUpperCase() || admin.email.charAt(0).toUpperCase()}</span>
+          <span className={styles.adminInfo}>
+            <strong>{admin.full_name || 'Staff account'}</strong>
+            <small>{admin.role === 'super_admin' ? 'Owner' : admin.role.replace('_', ' ')}</small>
+          </span>
+          <LockKeyhole size={16} aria-hidden="true" />
+        </Link>
+        <button className={styles.logoutBtn} type="button" onClick={handleLogout} disabled={signingOut}>
+          <LogOut size={17} aria-hidden="true" />{signingOut ? 'Signing out…' : 'Sign out'}
         </button>
       </div>
     </aside>
