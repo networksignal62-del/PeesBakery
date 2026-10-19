@@ -52,14 +52,21 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  // Check if user is admin for admin routes
+  // Check the same source of truth as the login page for admin access.
+  // `user_metadata` is user-editable and is not a safe authorization source.
   if (
     request.nextUrl.pathname.startsWith('/admin') &&
     !request.nextUrl.pathname.startsWith('/admin/login') &&
     user
   ) {
-    const isAdmin = user.user_metadata?.is_admin === true
-    if (!isAdmin) {
+    const { data: adminProfile } = await supabase
+      .from('admin_profiles')
+      .select('id')
+      .eq('id', user.id)
+      .eq('is_active', true)
+      .maybeSingle()
+
+    if (!adminProfile) {
       const url = request.nextUrl.clone()
       url.pathname = '/admin/login'
       return NextResponse.redirect(url)
