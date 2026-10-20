@@ -24,10 +24,14 @@ export default function HomePage() {
   const [categories, setCategories] = useState<Category[]>([])
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
+  const [retryCount, setRetryCount] = useState(0)
 
   // Load products, featured products, and categories from Supabase
   useEffect(() => {
     async function loadData() {
+      setLoading(true)
+      setLoadError('')
       try {
         const [productsResult, featuredResult, categoriesResult] = await Promise.all([
           getProducts(),
@@ -38,7 +42,7 @@ export default function HomePage() {
         if (productsResult.success) {
           setProducts(productsResult.data)
           setFilteredProducts(productsResult.data)
-        }
+        } else throw new Error('Products could not load. Please try again.')
 
         if (featuredResult.success) {
           setFeaturedProducts(featuredResult.data)
@@ -48,14 +52,14 @@ export default function HomePage() {
           setCategories(categoriesResult.data)
         }
       } catch (error) {
-        console.error("Error loading data:", error)
+        setLoadError(error instanceof Error ? error.message : 'Products could not load. Please try again.')
       } finally {
         setLoading(false)
       }
     }
 
     loadData()
-  }, [])
+  }, [retryCount])
 
   // Filter products when category changes
   useEffect(() => {
@@ -74,8 +78,8 @@ export default function HomePage() {
         <section className="relative h-[400px] md:h-[500px] lg:h-[600px] bg-gradient-to-b from-[#014325] to-[#014325]/80">
           <div className="absolute inset-0">
             <Image
-              src="/images/design-mode/Background%20for%20hero%20section%204%403x.png.jpeg"
-              alt="Pee's Bakery & Restaurant"
+              src="/images/design-mode/hero-background.jpeg"
+              alt=""
               fill
               className="object-cover opacity-100"
               priority
@@ -84,7 +88,7 @@ export default function HomePage() {
 
           <div className="relative container mx-auto px-4 h-full flex flex-col justify-center items-center text-center text-white">
             <h1 className="sm:text-3xl font-bold mb-3 md:mb-4 text-balance px-4 text-white text-3xl mt-[-50px] md:text-7xl">
-              Welcome to Pee's Bakery & Restaurant
+              Welcome to Pee&apos;s Bakery & Restaurant
             </h1>
             <p className="text-sm sm:text-base md:text-lg max-w-2xl mb-6 md:mb-8 text-pretty leading-relaxed px-4 rounded-sm lg:text-base">
               Your Home of Authentic African Dishes, Fresh Pastries, and Fast Food Delights in Freetown. Taste the
@@ -136,6 +140,11 @@ export default function HomePage() {
                 </div>
               ))}
             </div>
+          ) : loadError ? (
+            <div role="alert" className="rounded-xl bg-white p-8 text-center">
+              <p className="text-red-700">{loadError}</p>
+              <button type="button" onClick={() => setRetryCount(count => count + 1)} className="mt-4 rounded-lg bg-[#014325] px-5 py-2 text-white">Try again</button>
+            </div>
           ) : filteredProducts.length > 0 ? (
             <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
               {filteredProducts.map((product) =>
@@ -148,7 +157,7 @@ export default function HomePage() {
             </div>
           ) : (
             <div className="text-center py-12">
-              <p className="text-[#5c6466] text-lg">No products in this category</p>
+              <p className="text-[#5c6466] text-lg">{products.length ? 'No products in this category.' : 'The menu is empty right now. Please check back soon.'}</p>
             </div>
           )}
         </section>

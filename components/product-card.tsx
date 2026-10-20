@@ -5,7 +5,7 @@ import type React from "react"
 import { useState, useRef } from "react"
 import Image from "next/image"
 import Link from "next/link"
-import type { Product } from "@/lib/types"
+import type { Product, ProductVariant } from "@/lib/types"
 import { formatPrice } from "@/lib/utils-app"
 import { Plus, Minus, Heart } from 'lucide-react'
 import { useCart } from "@/hooks/use-cart"
@@ -21,6 +21,7 @@ interface ProductCardProps {
 export function ProductCard({ product }: ProductCardProps) {
   const [quantity, setQuantity] = useState(1) // Start with quantity of 1 instead of 0
   const [isExpanded, setIsExpanded] = useState(false) // New state to track if the add button has been clicked
+  const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(product.variants?.[0] ?? null)
   const [flyingAnimation, setFlyingAnimation] = useState(false)
   const [animationStart, setAnimationStart] = useState({ x: 0, y: 0 })
   const [showCartModal, setShowCartModal] = useState(false)
@@ -30,15 +31,10 @@ export function ProductCard({ product }: ProductCardProps) {
   const { toast } = useToast()
   const isFavorite = isInWishlist(product.id)
 
-  const handleClick = () => {
-    console.log("[v0] Product card clicked:", product.id, product.name)
-  }
-
   const handleWishlistToggle = (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
     toggleWishlist(product)
-    console.log("[v0] Wishlist toggled for:", product.name, "isFavorite:", !isFavorite)
 
     toast({
       title: isFavorite ? "Removed from Wishlist" : "Added to Wishlist ❤️",
@@ -60,12 +56,11 @@ export function ProductCard({ product }: ProductCardProps) {
       setFlyingAnimation(true)
     }
 
-    addToCart(product, quantity, [])
-    console.log("[v0] Add to cart from product card:", product.name, "qty:", quantity)
+    addToCart(product, quantity, [], selectedVariant)
 
     toast({
       title: "Added to Cart! 🛒",
-      description: `${product.name} x${quantity} - ${formatPrice(product.price * quantity)}`,
+      description: `${product.name}${selectedVariant ? ` (${selectedVariant.name})` : ""} x${quantity} - ${formatPrice((selectedVariant?.price ?? product.price) * quantity)}`,
       duration: 3000,
     })
 
@@ -78,10 +73,9 @@ export function ProductCard({ product }: ProductCardProps) {
     e.preventDefault()
     e.stopPropagation()
 
-    const newQuantity = Math.max(1, quantity + delta) // Minimum quantity is 1, not 0
+    const newQuantity = Math.min(99, Math.max(1, quantity + delta))
     setQuantity(newQuantity)
 
-    console.log("[v0] Quantity updated:", newQuantity)
   }
 
   return (
@@ -94,10 +88,10 @@ export function ProductCard({ product }: ProductCardProps) {
 
       <CartModal isOpen={showCartModal} onClose={() => setShowCartModal(false)} />
 
-      <Link href={`/product/${product.id}`} onClick={handleClick}>
-        <div className="bg-white border border-[#e5e7e8] rounded-xl overflow-hidden transition-all duration-300 hover:shadow-[0_12px_24px_rgba(1,67,37,0.15)] hover:-translate-y-2 hover:scale-[1.03] cursor-pointer flex flex-col h-full group">
+      <div className="bg-white border border-[#e5e7e8] rounded-xl overflow-hidden transition-all duration-300 hover:shadow-[0_12px_24px_rgba(1,67,37,0.15)] hover:-translate-y-2 hover:scale-[1.03] flex flex-col h-full group">
           {/* Image */}
           <div className="relative aspect-square overflow-hidden bg-[#f5f5f0]">
+            <Link href={`/product/${product.id}`} className="absolute inset-0" aria-label={`View ${product.name}`}>
             <Image
               src={product.image || "/placeholder.svg"}
               alt={product.name}
@@ -109,12 +103,13 @@ export function ProductCard({ product }: ProductCardProps) {
 
             {/* Price Badge */}
             <span className="absolute top-3 right-3 bg-[#fd4d00] text-white text-sm font-bold px-3 py-1.5 rounded-full shadow-md transition-all duration-300 group-hover:scale-110 group-hover:shadow-lg">
-              {formatPrice(product.price)}
+              {formatPrice(selectedVariant?.price ?? product.price)}
             </span>
+            </Link>
 
             <button
               onClick={handleWishlistToggle}
-              className="absolute top-3 left-3 w-9 h-9 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-white transition-all duration-300 shadow-md hover:scale-125 hover:rotate-12 active:scale-95"
+              className="absolute z-10 top-3 left-3 w-9 h-9 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-white transition-all duration-300 shadow-md hover:scale-125 hover:rotate-12 active:scale-95"
               aria-label={isFavorite ? "Remove from wishlist" : "Add to wishlist"}
             >
               <Heart
@@ -134,7 +129,7 @@ export function ProductCard({ product }: ProductCardProps) {
           <div className="p-4 flex flex-col flex-1">
             {/* Slide animation to title on hover */}
             <h3 className="font-bold text-lg text-[#0f1419] line-clamp-1 mb-1 transition-all duration-300 group-hover:text-[#014325]">
-              {product.name}
+              <Link href={`/product/${product.id}`}>{product.name}</Link>
             </h3>
 
             <p className="text-sm text-[#5c6466] capitalize mb-2 transition-colors duration-300 group-hover:text-[#014325]">
@@ -144,6 +139,27 @@ export function ProductCard({ product }: ProductCardProps) {
             <p className="text-sm text-[#5c6466] line-clamp-2 leading-relaxed mb-3 flex-1 transition-all duration-300">
               {product.description}
             </p>
+
+            {product.variants && product.variants.length > 0 && (
+              <fieldset className="mb-3 border-t border-[#e5e7e8] pt-3">
+                <legend className="text-xs font-semibold text-[#0f1419] uppercase tracking-wide">Size or type</legend>
+                <div className="mt-2 space-y-1">
+                  {product.variants.map(variant => (
+                    <label key={variant.id} className="flex items-center gap-3 rounded-lg p-2 cursor-pointer hover:bg-[#f5f5f0]">
+                      <input
+                        type="radio"
+                        name={`variant-${product.id}`}
+                        checked={selectedVariant?.id === variant.id}
+                        onChange={() => setSelectedVariant(variant)}
+                        className="h-4 w-4 accent-[#fd4d00]"
+                      />
+                      <span className="flex-1 text-sm text-[#0f1419]">{variant.name}</span>
+                      <span className="text-sm font-semibold text-[#014325]">{formatPrice(variant.price)}</span>
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+            )}
 
             <div className="mt-auto">
               {!isExpanded ? (
@@ -189,8 +205,7 @@ export function ProductCard({ product }: ProductCardProps) {
               )}
             </div>
           </div>
-        </div>
-      </Link>
+      </div>
     </>
   )
 }

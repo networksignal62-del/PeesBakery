@@ -1,6 +1,5 @@
 "use client"
 
-import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
 import { Header } from "@/components/header"
@@ -12,24 +11,19 @@ import Link from "next/link"
 
 export default function CartPage() {
   const router = useRouter()
-  const { cart, removeFromCart, updateQuantity, clearCart, getCartTotal, getItemCount } = useCart()
-
-  useEffect(() => {
-    console.log("[v0] Page loaded: Cart")
-    console.log("[v0] Cart viewed with", getItemCount(), "items")
-  }, [getItemCount])
+  const { cart, isLoaded, removeFromCart, updateQuantity, clearCart, getCartTotal, getItemCount } = useCart()
 
   const handleClearCart = () => {
     if (confirm("Are you sure you want to clear your cart?")) {
       clearCart()
-      console.log("[v0] Cart cleared by user")
     }
   }
 
   const handleCheckout = () => {
-    console.log("[v0] Proceed to checkout clicked, total:", getCartTotal())
     router.push("/checkout")
   }
+
+  if (!isLoaded) return <div className="min-h-screen bg-[#fffbf5]"><Header /><main className="container mx-auto px-4 py-16" role="status">Loading your cart…</main><Footer /></div>
 
   if (cart.length === 0) {
     return (

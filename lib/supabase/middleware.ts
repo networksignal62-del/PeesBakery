@@ -1,7 +1,19 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import { canAccessAdminPath, defaultAdminPath, isStaffRole } from '@/lib/admin-access'
+import { getSupabasePublicKey } from './config'
 
 export async function updateSession(request: NextRequest) {
+  const pathname = request.nextUrl.pathname
+  const isAdmin = pathname === '/admin' || pathname.startsWith('/admin/')
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const publicKey = getSupabasePublicKey()
+  if (!url || !publicKey) {
+    return isAdmin
+      ? NextResponse.json({ error: 'Staff sign-in is temporarily unavailable.' }, { status: 503 })
+      : NextResponse.next({ request })
+  }
+
   let supabaseResponse = NextResponse.next({
     request,
   })
@@ -9,8 +21,8 @@ export async function updateSession(request: NextRequest) {
   // With Fluid compute, don't put this client in a global environment
   // variable. Always create a new one on each request.
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    url,
+    publicKey,
     {
       cookies: {
         getAll() {
@@ -41,36 +53,23 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  // Protect admin routes - redirect to admin login if not authenticated
-  if (
-    request.nextUrl.pathname.startsWith('/admin') &&
-    !request.nextUrl.pathname.startsWith('/admin/login') &&
-    !user
-  ) {
-    const url = request.nextUrl.clone()
-    url.pathname = '/admin/login'
-    return NextResponse.redirect(url)
-  }
+  if (isAdmin) {
+    const login = pathname === '/admin/login'
+    if (pathname === '/admin/welcome') return supabaseResponse
+    const { data: profile } = user
+      ? await supabase.from('admin_profiles').select('role, is_active').eq('id', user.id).eq('is_active', true).maybeSingle()
+      : { data: null }
+    const role = profile && isStaffRole(profile.role) ? profile.role : null
 
-  // Check the same source of truth as the login page for admin access.
-  // `user_metadata` is user-editable and is not a safe authorization source.
-  if (
-    request.nextUrl.pathname.startsWith('/admin') &&
-    !request.nextUrl.pathname.startsWith('/admin/login') &&
-    user
-  ) {
-    const { data: adminProfile } = await supabase
-      .from('admin_profiles')
-      .select('id')
-      .eq('id', user.id)
-      .eq('is_active', true)
-      .maybeSingle()
-
-    if (!adminProfile) {
-      const url = request.nextUrl.clone()
-      url.pathname = '/admin/login'
-      return NextResponse.redirect(url)
+    function redirect(path: string) {
+      const response = NextResponse.redirect(new URL(path, request.url))
+      supabaseResponse.cookies.getAll().forEach(cookie => response.cookies.set(cookie))
+      return response
     }
+
+    if (!login && !role) return redirect('/admin/login')
+    if (login && role) return redirect(defaultAdminPath(role))
+    if (role && !canAccessAdminPath(role, pathname)) return redirect(defaultAdminPath(role))
   }
 
   // IMPORTANT: You *must* return the supabaseResponse object as it is.
