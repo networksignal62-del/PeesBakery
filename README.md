@@ -29,8 +29,8 @@ Required Vercel environment variables:
 | Name | Scope |
 | --- | --- |
 | `NEXT_PUBLIC_SUPABASE_URL` | Browser and server |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Browser and server |
-| `SUPABASE_SERVICE_ROLE_KEY` | Server only; required for staff invitations and product image uploads |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Browser and server; legacy `NEXT_PUBLIC_SUPABASE_ANON_KEY` also works |
+| `SUPABASE_SECRET_KEY` | Server only; required for staff invitations and product image uploads. Legacy `SUPABASE_SERVICE_ROLE_KEY` also works. |
 | `NEXT_PUBLIC_SITE_URL` | Current deployment origin; switch to `https://peesbakery.rest` after domain cutover |
 
 The public menu reflects active products in Supabase. General WhatsApp, checkout WhatsApp, and order calls have separate settings and retain their current numbers.

@@ -112,3 +112,32 @@ It does not certify the current live deployment or the real Supabase project.
 The earlier public deployment was observed serving `/admin` and `/menu`, while
 `/robots.txt` and `/sitemap.xml` returned 404. Those routes now respond on the
 new Vercel alias, but the custom domain still needs a cutover and smoke test.
+
+## Follow-up on 20 October 2026
+
+- Draft PR #7 is still open and unmerged. The new `pees-bakery-site` Vercel
+  project has the URL for the connected `PeesbakeryRestorant` Supabase project.
+  Its configured publishable key was not registered for that project; it was
+  replaced with the project's active publishable key and verified by comparing
+  the values. The site now accepts this key under
+  `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, while retaining the legacy anon-key
+  variable as a fallback. Server code also accepts `SUPABASE_SECRET_KEY` or the
+  legacy service-role variable.
+- Neither server secret variable is set on that Vercel project. The environment
+  update did not create a new deployment: `https://pees-bakery-site.vercel.app/admin`
+  still returns HTTP 503. Do not treat the local smoke test as a hosted release.
+- Both application builds and TypeScript checks passed after the key-name change.
+  With the active publishable key, a local production-mode browser loaded 33
+  menu items at 390 and 1440 CSS pixels, rendered `/admin/login`, and redirected
+  an unauthenticated `/admin` visit to login. One 1440-pixel menu load exceeded
+  a 20-second wait; a follow-up run passed. Authenticated staff flows and order
+  writes were not tested against production.
+- Read-only database preflight found one active owner profile, zero invalid
+  roles, zero unmapped product categories, zero out-of-range catalog prices,
+  and zero duplicate variant or add-on names. The `images` bucket exists and
+  is public. The database still records only its original migration and none
+  of the three required public RPCs. No migration was applied.
+- The Supabase dashboard redirected to sign-in, so a restorable backup is still
+  unverified. Database-password rotation is also unverified. Keep PR #7 in
+  draft until the backup, rotation, migration, server secret, and live role and
+  order checks are complete.

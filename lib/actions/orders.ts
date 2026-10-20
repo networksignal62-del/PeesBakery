@@ -1,6 +1,7 @@
 "use server"
 
 import { createClient } from "@/lib/supabase/server"
+import { getSupabasePublicKey } from "@/lib/supabase/config"
 
 export interface OrderPayload {
   customerName: string
@@ -21,7 +22,7 @@ export interface OrderPayload {
 }
 
 export async function saveOrder(payload: OrderPayload) {
-  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !getSupabasePublicKey()) {
     return { success: false as const, error: 'Ordering is temporarily unavailable. Please call the restaurant.' }
   }
   const supabase = await createClient()

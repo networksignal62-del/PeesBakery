@@ -3,12 +3,13 @@ import 'server-only'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { createClient as createUserClient } from '@/lib/supabase/server'
 import { isStaffRole, type StaffRole } from '@/lib/admin-access'
+import { getSupabasePublicKey } from '@/lib/supabase/config'
 
 export async function getAdminContext(allowedRoles?: readonly StaffRole[]) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-  if (!url || !anonKey || !serviceKey) return null
+  const publicKey = getSupabasePublicKey()
+  const serviceKey = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!url || !publicKey || !serviceKey) return null
 
   const userClient = await createUserClient()
   const { data: { user }, error: userError } = await userClient.auth.getUser()

@@ -1,13 +1,14 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import { canAccessAdminPath, defaultAdminPath, isStaffRole } from '@/lib/admin-access'
+import { getSupabasePublicKey } from './config'
 
 export async function updateSession(request: NextRequest) {
   const pathname = request.nextUrl.pathname
   const isAdmin = pathname === '/admin' || pathname.startsWith('/admin/')
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  if (!url || !anonKey) {
+  const publicKey = getSupabasePublicKey()
+  if (!url || !publicKey) {
     return isAdmin
       ? NextResponse.json({ error: 'Staff sign-in is temporarily unavailable.' }, { status: 503 })
       : NextResponse.next({ request })
@@ -21,7 +22,7 @@ export async function updateSession(request: NextRequest) {
   // variable. Always create a new one on each request.
   const supabase = createServerClient(
     url,
-    anonKey,
+    publicKey,
     {
       cookies: {
         getAll() {
