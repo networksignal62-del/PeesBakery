@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
+import Image from "next/image"
 import { createClient } from "@/lib/supabase/client"
 import {
   getAdminProducts,
@@ -42,6 +43,7 @@ export default function AdminProductsPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null)
   const [adminName, setAdminName] = useState("Admin")
+  const [formError, setFormError] = useState("")
 
   const loadProducts = useCallback(async () => {
     const { data } = await getAdminProducts()
@@ -82,12 +84,25 @@ export default function AdminProductsPage() {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
+    setFormError("")
+
+    const normalizedPrice = form.price.replace(/,/g, "").replace(/[^0-9.]/g, "")
+    const parsedPrice = Number(normalizedPrice)
+    if (!form.name.trim()) {
+      setFormError("Product name is required.")
+      return
+    }
+    if (!Number.isFinite(parsedPrice) || parsedPrice < 0) {
+      setFormError("Enter a valid non-negative price, for example 125000.")
+      return
+    }
+
     setSaving(true)
 
     const payload = {
       name: form.name.trim(),
       category: form.category,
-      price: parseFloat(form.price),
+      price: parsedPrice,
       image: form.image.trim() || undefined,
       description: form.description.trim() || undefined,
       longDescription: form.longDescription.trim() || undefined,
@@ -95,10 +110,14 @@ export default function AdminProductsPage() {
       isActive: form.isActive,
     }
 
-    if (editingProduct) {
-      await updateProduct(editingProduct.id, payload)
-    } else {
-      await createProduct(payload)
+    const result = editingProduct
+      ? await updateProduct(editingProduct.id, payload)
+      : await createProduct(payload)
+
+    if (!result.success) {
+      setFormError(result.error || "We could not save this product. Please try again.")
+      setSaving(false)
+      return
     }
 
     await loadProducts()
@@ -267,6 +286,11 @@ export default function AdminProductsPage() {
             </div>
 
             <form onSubmit={handleSave} className="p-6 space-y-4">
+              {formError && (
+                <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                  {formError}
+                </div>
+              )}
               <div>
                 <label className="block text-sm font-medium text-[#0f1419] mb-1.5">Product Name *</label>
                 <input

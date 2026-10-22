@@ -190,6 +190,14 @@ export async function createProduct(payload: ProductPayload) {
 }
 
 export async function updateProduct(id: number, payload: Partial<ProductPayload>) {
+  if (!Number.isInteger(id) || id <= 0) {
+    return { success: false, error: "Invalid product id" }
+  }
+
+  if (payload.price !== undefined && (!Number.isFinite(payload.price) || payload.price < 0)) {
+    return { success: false, error: "Price must be a valid non-negative number" }
+  }
+
   const supabase = await createClient()
 
   const { error } = await supabase
